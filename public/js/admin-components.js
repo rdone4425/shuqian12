@@ -21,6 +21,132 @@ const AdminView = {
 
       <!-- 标签页内容 -->
       <div class="tab-content">
+        <!-- 监控面板 -->
+        <div v-if="activeTab === 'dashboard'" class="tab-panel">
+          <div class="panel-header">
+            <h2>系统监控面板</h2>
+            <div class="dashboard-actions">
+              <button @click="refreshDashboard" class="btn btn-primary" :disabled="dashboardLoading">
+                <i class="fas fa-sync-alt" :class="{ 'fa-spin': dashboardLoading }"></i>
+                刷新数据
+              </button>
+              <span v-if="lastUpdateTime" class="last-update">
+                最后更新: {{ formatDateTime(lastUpdateTime) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- 系统概览卡片 -->
+          <div class="dashboard-grid">
+            <!-- 系统统计 -->
+            <div class="dashboard-card">
+              <div class="card-header">
+                <h3><i class="fas fa-chart-bar"></i> 系统统计</h3>
+              </div>
+              <div class="card-content">
+                <div v-if="dashboardData.systemStats" class="stats-grid">
+                  <div class="stat-item">
+                    <div class="stat-number">{{ dashboardData.systemStats.total_bookmarks || 0 }}</div>
+                    <div class="stat-label">总书签数</div>
+                  </div>
+                  <div class="stat-item">
+                    <div class="stat-number">{{ dashboardData.systemStats.total_categories || 0 }}</div>
+                    <div class="stat-label">分类数</div>
+                  </div>
+                  <div class="stat-item">
+                    <div class="stat-number">{{ dashboardData.systemStats.total_domains || 0 }}</div>
+                    <div class="stat-label">域名数</div>
+                  </div>
+                  <div class="stat-item">
+                    <div class="stat-number">{{ dashboardData.systemStats.today_added || 0 }}</div>
+                    <div class="stat-label">今日新增</div>
+                  </div>
+                </div>
+                <div v-else class="loading-placeholder">
+                  <i class="fas fa-spinner fa-spin"></i> 加载中...
+                </div>
+              </div>
+            </div>
+
+            <!-- 性能监控 -->
+            <div class="dashboard-card">
+              <div class="card-header">
+                <h3><i class="fas fa-tachometer-alt"></i> 性能监控</h3>
+              </div>
+              <div class="card-content">
+                <div v-if="dashboardData.performanceData" class="performance-info">
+                  <div class="performance-item">
+                    <span class="label">数据库状态:</span>
+                    <span :class="['status', dashboardData.performanceData.database_available ? 'online' : 'offline']">
+                      {{ dashboardData.performanceData.database_available ? '在线' : '离线' }}
+                    </span>
+                  </div>
+                  <div class="performance-item">
+                    <span class="label">平均响应时间:</span>
+                    <span class="value">{{ dashboardData.performanceData.average_response_time_ms }}ms</span>
+                  </div>
+                  <div class="performance-item">
+                    <span class="label">性能评级:</span>
+                    <span :class="['grade', getGradeClass(dashboardData.performanceData.performance_grade)]">
+                      {{ dashboardData.performanceData.performance_grade }}
+                    </span>
+                  </div>
+                  <div class="performance-item">
+                    <span class="label">成功率:</span>
+                    <span class="value">{{ dashboardData.performanceData.success_rate }}</span>
+                  </div>
+                </div>
+                <div v-else class="loading-placeholder">
+                  <i class="fas fa-spinner fa-spin"></i> 加载中...
+                </div>
+              </div>
+            </div>
+
+            <!-- 最近日志 -->
+            <div class="dashboard-card">
+              <div class="card-header">
+                <h3><i class="fas fa-list-alt"></i> 最近日志</h3>
+                <button @click="activeTab = 'logs'" class="btn-sm btn-outline">查看全部</button>
+              </div>
+              <div class="card-content">
+                <div v-if="dashboardData.recentLogs.length > 0" class="recent-logs">
+                  <div v-for="log in dashboardData.recentLogs.slice(0, 5)" :key="log.id" class="log-item">
+                    <div class="log-time">{{ formatDateTime(log.created_at) }}</div>
+                    <div :class="['log-level', 'level-' + log.level]">{{ getLogLevelText(log.level) }}</div>
+                    <div class="log-message">{{ log.message }}</div>
+                  </div>
+                </div>
+                <div v-else class="empty-state">
+                  <i class="fas fa-inbox"></i>
+                  <p>暂无日志记录</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- 同步历史 -->
+            <div class="dashboard-card">
+              <div class="card-header">
+                <h3><i class="fas fa-sync-alt"></i> 同步历史</h3>
+              </div>
+              <div class="card-content">
+                <div v-if="dashboardData.syncHistory.length > 0" class="sync-history">
+                  <div v-for="sync in dashboardData.syncHistory.slice(0, 5)" :key="sync.id" class="sync-item">
+                    <div class="sync-time">{{ formatDateTime(sync.created_at) }}</div>
+                    <div :class="['sync-status', sync.level === 'success' ? 'success' : 'error']">
+                      <i :class="sync.level === 'success' ? 'fas fa-check' : 'fas fa-times'"></i>
+                      {{ sync.message }}
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="empty-state">
+                  <i class="fas fa-sync-alt"></i>
+                  <p>暂无同步记录</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 书签管理 -->
         <div v-if="activeTab === 'bookmarks'" class="tab-panel">
           <div class="panel-header">
@@ -612,6 +738,7 @@ const AdminView = {
   setup() {
     // 标签页配置
     const tabs = [
+      { id: 'dashboard', name: '监控面板', icon: 'fas fa-tachometer-alt' },
       { id: 'bookmarks', name: '书签管理', icon: 'fas fa-bookmark' },
       { id: 'categories', name: '分类管理', icon: 'fas fa-folder' },
       { id: 'database', name: '数据库', icon: 'fas fa-database' },
@@ -621,7 +748,7 @@ const AdminView = {
     ];
 
     // 响应式数据
-    const activeTab = ref('bookmarks');
+    const activeTab = ref('dashboard');
 
     // 书签管理相关
     const adminBookmarks = ref([]);
@@ -666,6 +793,16 @@ const AdminView = {
     const logTypeFilter = ref('');
     const logTimeFilter = ref('');
     const expandedLogs = ref([]);
+
+    // 监控面板相关
+    const dashboardData = ref({
+      systemStats: null,
+      performanceData: null,
+      recentLogs: [],
+      syncHistory: []
+    });
+    const dashboardLoading = ref(false);
+    const lastUpdateTime = ref(null);
 
     // API文档相关
     const apiTesting = ref(false);
@@ -1442,6 +1579,72 @@ const AdminView = {
       }
     };
 
+    // 监控面板相关函数
+    const refreshDashboard = async () => {
+      dashboardLoading.value = true;
+
+      try {
+        // 并行获取所有监控数据
+        const [statsResponse, performanceResponse, logsResponse] = await Promise.all([
+          fetch('/api/system/stats'),
+          fetch('/api/performance'),
+          fetch('/api/system/logs?limit=10&type=all')
+        ]);
+
+        // 解析响应
+        const [statsData, performanceData, logsData] = await Promise.all([
+          statsResponse.json(),
+          performanceResponse.json(),
+          logsResponse.json()
+        ]);
+
+        // 更新监控数据
+        if (statsData.success) {
+          dashboardData.value.systemStats = statsData.stats;
+        }
+
+        if (performanceData.success) {
+          dashboardData.value.performanceData = performanceData.performance.summary;
+        }
+
+        if (logsData.success) {
+          dashboardData.value.recentLogs = logsData.logs || [];
+          // 筛选同步相关的日志作为同步历史
+          dashboardData.value.syncHistory = (logsData.logs || []).filter(log =>
+            log.type === 'chrome_plugin' || log.message.includes('同步') || log.message.includes('sync')
+          );
+        }
+
+        lastUpdateTime.value = new Date().toISOString();
+
+      } catch (error) {
+        console.error('刷新监控面板失败:', error);
+        alert('刷新监控数据失败: ' + error.message);
+      } finally {
+        dashboardLoading.value = false;
+      }
+    };
+
+    const getGradeClass = (grade) => {
+      if (!grade) return 'unknown';
+      const letter = grade.charAt(0).toLowerCase();
+      return `grade-${letter}`;
+    };
+
+    // 页面加载时自动刷新监控面板
+    const initDashboard = () => {
+      if (activeTab.value === 'dashboard') {
+        refreshDashboard();
+      }
+    };
+
+    // 监听标签页切换
+    watch(activeTab, (newTab) => {
+      if (newTab === 'dashboard' && !dashboardData.value.systemStats) {
+        refreshDashboard();
+      }
+    });
+
     // 工具函数
     const getIconUrl = (bookmark) => {
       return bookmark.icon_url || `https://www.google.com/s2/favicons?domain=${bookmark.domain}&sz=32`;
@@ -1527,13 +1730,16 @@ const AdminView = {
       }
     };
 
-    // 初始化时先检查数据库状态
+    // 页面初始化
     onMounted(async () => {
       // 先静默检查数据库状态
       await checkDatabaseSilently();
 
-      // 如果数据库已初始化，则加载数据
-      if (dbStatus.value.tablesExist) {
+      // 根据当前标签页加载对应数据
+      if (activeTab.value === 'dashboard') {
+        refreshDashboard();
+      } else if (dbStatus.value.tablesExist) {
+        // 如果数据库已初始化，则加载数据
         await Promise.all([
           loadCategories(),
           loadDomains(),
@@ -1559,7 +1765,8 @@ const AdminView = {
           loadCategories();
         }
       } else if (newTab === 'database') {
-        checkDatabase();
+        // 静默检查数据库状态，不弹窗
+        checkDatabaseSilently();
       } else if (newTab === 'logs') {
         // 加载日志
         loadLogs();
@@ -1595,6 +1802,9 @@ const AdminView = {
       logTypeFilter,
       logTimeFilter,
       expandedLogs,
+      dashboardData,
+      dashboardLoading,
+      lastUpdateTime,
       apiTesting,
       apiTestResult,
       apiBaseUrl,
@@ -1619,6 +1829,9 @@ const AdminView = {
       copyApiUrl,
       testApiConnection,
       testEndpoint,
+      refreshDashboard,
+      getGradeClass,
+      initDashboard,
       checkDatabase,
       checkDatabaseSilently,
       initDatabase,

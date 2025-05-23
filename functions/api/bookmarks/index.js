@@ -260,78 +260,187 @@ async function handleCreateBookmark(db, request) {
   }
 }
 
-// 批量创建书签
+// 批量创建书签 - 优化版本
 async function handleBatchCreateBookmarks(db, bookmarks) {
   try {
+    console.log(`开始批量处理 ${bookmarks.length} 个书签`);
+    const startTime = Date.now();
+
     const results = [];
     let successCount = 0;
     let skipCount = 0;
     let errorCount = 0;
 
+    // 预处理书签数据
+    const validBookmarks = [];
+    const invalidBookmarks = [];
+
     for (const bookmark of bookmarks) {
+      const title = bookmark.title;
+      const url = bookmark.url;
+
+      if (!title || !url) {
+        invalidBookmarks.push(bookmark);
+        continue;
+      }
+
+      const domain = bookmark.domain || extractDomain(url);
+      const path = bookmark.path || extractPath(url);
+
+      validBookmarks.push({
+        title: title.trim(),
+        url: url.trim(),
+        domain: domain,
+        path: path,
+        category_id: bookmark.category_id || bookmark.categoryId || null,
+        subcategory: bookmark.subcategory || null,
+        icon_url: bookmark.icon_url || bookmark.iconUrl || bookmark.favIconUrl || null,
+        description: bookmark.description || null
+      });
+    }
+
+    console.log(`预处理完成: ${validBookmarks.length} 有效, ${invalidBookmarks.length} 无效`);
+
+    // 跳过无效书签
+    skipCount += invalidBookmarks.length;
+    invalidBookmarks.forEach(bookmark => {
+      results.push(`跳过无效书签: ${bookmark.title || 'Unknown'} - 缺少标题或URL`);
+    });
+
+    if (validBookmarks.length === 0) {
+      return new Response(JSON.stringify({
+        success: true,
+        message: '没有有效的书签需要处理',
+        summary: { total: bookmarks.length, success: 0, skipped: skipCount, errors: 0 },
+        details: results
+      }), {
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // 批量检查重复书签
+    const urls = validBookmarks.map(b => b.url);
+    const placeholders = urls.map(() => '?').join(',');
+    const existingBookmarks = await db.prepare(`
+      SELECT url FROM bookmarks WHERE url IN (${placeholders})
+    `).bind(...urls).all();
+
+    const existingUrls = new Set((existingBookmarks.results || existingBookmarks).map(b => b.url));
+    console.log(`发现 ${existingUrls.size} 个重复书签`);
+
+    // 分离新书签和重复书签
+    const newBookmarks = [];
+    const duplicateBookmarks = [];
+
+    for (const bookmark of validBookmarks) {
+      if (existingUrls.has(bookmark.url)) {
+        duplicateBookmarks.push(bookmark);
+      } else {
+        newBookmarks.push(bookmark);
+      }
+    }
+
+    // 跳过重复书签
+    skipCount += duplicateBookmarks.length;
+    duplicateBookmarks.forEach(bookmark => {
+      results.push(`跳过重复书签: ${bookmark.title}`);
+    });
+
+    // 批量插入新书签
+    if (newBookmarks.length > 0) {
+      console.log(`开始批量插入 ${newBookmarks.length} 个新书签`);
+
+      // 使用事务批量插入
+      const insertStmt = db.prepare(`
+        INSERT INTO bookmarks (title, url, domain, path, category_id, subcategory, icon_url, description)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      // 分批处理，避免单次事务过大
+      const batchSize = 50;
+      for (let i = 0; i < newBookmarks.length; i += batchSize) {
+        const batch = newBookmarks.slice(i, i + batchSize);
+
+        try {
+          // 批量执行插入
+          for (const bookmark of batch) {
+            await insertStmt.bind(
+              bookmark.title,
+              bookmark.url,
+              bookmark.domain,
+              bookmark.path,
+              bookmark.category_id,
+              bookmark.subcategory,
+              bookmark.icon_url,
+              bookmark.description
+            ).run();
+
+            successCount++;
+            results.push(`成功添加: ${bookmark.title}`);
+          }
+
+          console.log(`批次 ${Math.floor(i/batchSize) + 1} 完成: ${batch.length} 个书签`);
+        } catch (error) {
+          console.error(`批次 ${Math.floor(i/batchSize) + 1} 失败:`, error);
+          errorCount += batch.length;
+          batch.forEach(bookmark => {
+            results.push(`添加失败: ${bookmark.title} - ${error.message}`);
+          });
+        }
+      }
+    }
+
+    // 批量更新域名统计（优化版）
+    if (successCount > 0) {
       try {
-        const title = bookmark.title;
-        const url = bookmark.url;
-        const domain = bookmark.domain || extractDomain(url);
-        const path = bookmark.path || extractPath(url);
-        const category_id = bookmark.category_id || bookmark.categoryId || null;
-        const subcategory = bookmark.subcategory || null;
-        const icon_url = bookmark.icon_url || bookmark.iconUrl || bookmark.favIconUrl || null;
-        const description = bookmark.description || null;
+        console.log('开始更新域名统计...');
 
-        if (!title || !url) {
-          results.push(`跳过无效书签: 缺少标题或URL`);
-          skipCount++;
-          continue;
-        }
+        // 获取所有需要更新的域名
+        const domainsToUpdate = [...new Set(newBookmarks.map(b => b.domain))];
 
-        // 检查是否已存在
-        const existing = await db.prepare('SELECT id FROM bookmarks WHERE url = ?').bind(url).first();
-        if (existing) {
-          results.push(`跳过重复书签: ${title}`);
-          skipCount++;
-          continue;
-        }
-
-        // 插入书签
-        await db.prepare(`
-          INSERT INTO bookmarks (title, url, domain, path, category_id, subcategory, icon_url, description)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).bind(title, url, domain, path, category_id, subcategory, icon_url, description).run();
-
-        results.push(`成功添加: ${title}`);
-        successCount++;
-
-      } catch (error) {
-        results.push(`添加失败: ${bookmark.title || 'Unknown'} - ${error.message}`);
-        errorCount++;
-      }
-    }
-
-    // 更新域名统计
-    try {
-      const domains = await db.prepare('SELECT DISTINCT domain FROM bookmarks').all();
-      for (const domainRow of (domains.results || domains)) {
-        const count = await db.prepare('SELECT COUNT(*) as count FROM bookmarks WHERE domain = ?').bind(domainRow.domain).first();
-        await db.prepare(`
+        // 批量更新域名统计
+        const domainStmt = db.prepare(`
           INSERT OR REPLACE INTO domains (domain, bookmark_count)
-          VALUES (?, ?)
-        `).bind(domainRow.domain, count.count).run();
+          VALUES (?, (SELECT COUNT(*) FROM bookmarks WHERE domain = ?))
+        `);
+
+        for (const domain of domainsToUpdate) {
+          await domainStmt.bind(domain, domain).run();
+        }
+
+        console.log(`域名统计更新完成: ${domainsToUpdate.length} 个域名`);
+      } catch (error) {
+        console.error('更新域名统计失败:', error);
+        // 不影响主要流程，只记录错误
       }
-    } catch (error) {
-      console.error('更新域名统计失败:', error);
     }
+
+    const endTime = Date.now();
+    const processingTime = endTime - startTime;
+
+    console.log(`批量处理完成: 耗时 ${processingTime}ms, 成功 ${successCount}, 跳过 ${skipCount}, 失败 ${errorCount}`);
 
     return new Response(JSON.stringify({
       success: true,
-      message: `批量导入完成: 成功${successCount}个，跳过${skipCount}个，失败${errorCount}个`,
+      message: `批量同步完成: 成功${successCount}个，跳过${skipCount}个，失败${errorCount}个`,
       summary: {
         total: bookmarks.length,
         success: successCount,
         skipped: skipCount,
-        errors: errorCount
+        errors: errorCount,
+        processing_time_ms: processingTime,
+        new_bookmarks: newBookmarks.length,
+        duplicates: duplicateBookmarks.length,
+        invalid: invalidBookmarks.length
       },
-      details: results
+      performance: {
+        total_time: `${processingTime}ms`,
+        avg_per_bookmark: `${Math.round(processingTime / bookmarks.length)}ms`,
+        bookmarks_per_second: Math.round(bookmarks.length / (processingTime / 1000))
+      },
+      details: results.length > 100 ?
+        [...results.slice(0, 50), `... 省略 ${results.length - 100} 条记录 ...`, ...results.slice(-50)] :
+        results
     }), {
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
@@ -340,7 +449,8 @@ async function handleBatchCreateBookmarks(db, bookmarks) {
     console.error('批量创建书签失败:', error);
     return new Response(JSON.stringify({
       success: false,
-      message: '批量创建书签失败: ' + error.message
+      message: '批量创建书签失败: ' + error.message,
+      error_details: error.toString()
     }), {
       status: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
