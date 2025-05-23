@@ -54,6 +54,12 @@
   <p>这个页面用于测试和诊断API端点是否正常工作。</p>
 
   <div class="test-card">
+    <h3>🧪 基础Functions测试</h3>
+    <button class="test-button" onclick="testBasicFunction()">测试 /api/test (基础Functions)</button>
+    <div id="test-result" class="result" style="display: none;"></div>
+  </div>
+
+  <div class="test-card">
     <h3>数据库检查API</h3>
     <button class="test-button" onclick="testCheckDatabase()">测试 /api/check-database</button>
     <div id="check-database-result" class="result" style="display: none;"></div>
@@ -87,7 +93,7 @@
     async function testAPI(endpoint, method = 'GET', body = null) {
       const resultId = endpoint.replace('/api/', '') + '-result';
       const resultElement = document.getElementById(resultId);
-      
+
       resultElement.style.display = 'block';
       resultElement.className = 'result info';
       resultElement.textContent = `正在测试 ${endpoint}...`;
@@ -100,7 +106,7 @@
         }
 
         const response = await fetch(endpoint, options);
-        
+
         const responseInfo = {
           status: response.status,
           statusText: response.statusText,
@@ -110,7 +116,7 @@
 
         let responseData;
         const contentType = response.headers.get('content-type');
-        
+
         if (contentType && contentType.includes('application/json')) {
           try {
             responseData = await response.json();
@@ -138,6 +144,10 @@
       }
     }
 
+    function testBasicFunction() {
+      testAPI('/api/test');
+    }
+
     function testCheckDatabase() {
       testAPI('/api/check-database');
     }
@@ -158,11 +168,19 @@
       testAPI('/api/bookmarks');
     }
 
-    // 页面加载时自动测试check-database
+    function testBasicFunction() {
+      testAPI('/api/test');
+    }
+
+    // 页面加载时自动测试基础功能
     window.addEventListener('load', () => {
       setTimeout(() => {
+        testBasicFunction();
+      }, 500);
+
+      setTimeout(() => {
         testCheckDatabase();
-      }, 1000);
+      }, 1500);
     });
   </script>
 </body>
