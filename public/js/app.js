@@ -566,3 +566,257 @@ function showError(message) {
 
 // 初始化应用
 document.addEventListener('DOMContentLoaded', init);
+
+// admin.js - 管理后台脚本
+if (window.location.pathname.includes('admin.html')) {
+  const adminState = {
+    currentTab: 'bookmarks',
+    currentPage: 1,
+    totalPages: 1,
+    itemsPerPage: 20,
+    bookmarks: [],
+    categories: [],
+    domains: [],
+    filters: { domain: '', category: '', search: '' }
+  };
+
+  const adminElements = {
+    navTabs: document.querySelectorAll('.nav-tab'),
+    tabContents: document.querySelectorAll('.tab-content'),
+    dbStatus: document.getElementById('db-status'),
+    bookmarkSearch: document.getElementById('bookmark-search'),
+    domainFilter: document.getElementById('domain-filter'),
+    categoryFilter: document.getElementById('category-filter'),
+    addBookmarkBtn: document.getElementById('add-bookmark-btn'),
+    bookmarksTable: document.getElementById('bookmarks-table'),
+    prevPage: document.getElementById('prev-page'),
+    nextPage: document.getElementById('next-page'),
+    pageInfo: document.getElementById('page-info'),
+    addCategoryBtn: document.getElementById('add-category-btn'),
+    categoriesTable: document.getElementById('categories-table'),
+    totalBookmarks: document.getElementById('total-bookmarks'),
+    totalDomains: document.getElementById('total-domains'),
+    totalCategories: document.getElementById('total-categories'),
+    dbStatusText: document.getElementById('db-status-text'),
+    checkDbBtn: document.getElementById('check-db-btn'),
+    initDbBtn: document.getElementById('init-db-btn'),
+    exportBtn: document.getElementById('export-btn'),
+    importBtn: document.getElementById('import-btn'),
+    backupBtn: document.getElementById('backup-btn'),
+    saveSettingsBtn: document.getElementById('save-settings-btn')
+  };
+
+  async function adminInit() {
+    try {
+      await adminCheckDatabaseStatus();
+      await adminLoadData();
+      adminSetupEventListeners();
+      console.log('管理后台初始化完成');
+    } catch (error) {
+      console.error('初始化失败:', error);
+    }
+  }
+
+  async function adminCheckDatabaseStatus() {
+    try {
+      const response = await fetch('/api/status');
+      const data = await response.json();
+
+      if (data.status === 'ready' || data.status === 'connected') {
+        adminElements.dbStatus.textContent = '已连接';
+        adminElements.dbStatus.style.background = '#f0fff4';
+        adminElements.dbStatus.style.color = '#22543d';
+      } else {
+        adminElements.dbStatus.textContent = '需要初始化';
+        adminElements.dbStatus.style.background = '#fffbf0';
+        adminElements.dbStatus.style.color = '#744210';
+      }
+    } catch (error) {
+      adminElements.dbStatus.textContent = '连接失败';
+      adminElements.dbStatus.style.background = '#fed7d7';
+      adminElements.dbStatus.style.color = '#742a2a';
+    }
+  }
+
+  async function adminLoadData() {
+    await Promise.all([adminLoadBookmarks(), adminLoadCategories(), adminLoadDomains(), adminLoadStats()]);
+  }
+
+  async function adminLoadBookmarks(page = 1) {
+    try {
+      adminShowLoading(adminElements.bookmarksTable, 6);
+
+      const params = new URLSearchParams({
+        page: page,
+        limit: adminState.itemsPerPage,
+        domain: adminState.filters.domain,
+        category: adminState.filters.category,
+        search: adminState.filters.search
+      });
+
+      const response = await fetch(`/api/bookmarks?${params}`);
+      const data = await response.json();
+
+      if (data.success) {
+        adminState.bookmarks = data.bookmarks || data.data || [];
+        adminState.currentPage = page;
+        adminState.totalPages = Math.ceil((data.total || 0) / adminState.itemsPerPage);
+        adminRenderBookmarks();
+        adminUpdatePagination();
+      } else {
+        adminShowError(adminElements.bookmarksTable, '加载书签失败', 6);
+      }
+    } catch (error) {
+      console.error('加载书签失败:', error);
+      adminShowError(adminElements.bookmarksTable, '加载书签失败', 6);
+    }
+  }
+
+  function adminRenderBookmarks() {
+    if (adminState.bookmarks.length === 0) {
+      adminElements.bookmarksTable.innerHTML = `
+        <tr><td colspan="6" style="text-align: center; padding: 40px; color: #a0aec0;">
+          <i class="fas fa-search"></i> 没有找到书签
+        </td></tr>`;
+      return;
+    }
+
+    adminElements.bookmarksTable.innerHTML = adminState.bookmarks.map((bookmark, index) => {
+      const categoryName = adminGetCategoryName(bookmark.category_id);
+      const rowNumber = (adminState.currentPage - 1) * adminState.itemsPerPage + index + 1;
+
+      return `
+        <tr>
+          <td>${rowNumber}</td>
+          <td><div style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${bookmark.title}">${bookmark.title}</div></td>
+          <td>${bookmark.domain}</td>
+          <td>${categoryName}</td>
+          <td>${adminFormatDate(bookmark.created_at)}</td>
+          <td>
+            <div class="actions">
+              <button class="btn btn-sm btn-edit" onclick="adminEditBookmark(${bookmark.id})" title="编辑"><i class="fas fa-edit"></i></button>
+              <button class="btn btn-sm btn-delete" onclick="adminDeleteBookmark(${bookmark.id})" title="删除"><i class="fas fa-trash"></i></button>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  function adminGetCategoryName(categoryId) {
+    if (!categoryId) return '未分类';
+    const category = adminState.categories.find(cat => cat.id === categoryId);
+    return category ? category.name : '未分类';
+  }
+
+  function adminFormatDate(dateString) {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleDateString('zh-CN');
+  }
+
+  function adminShowLoading(element, colspan) {
+    element.innerHTML = `<tr><td colspan="${colspan}" style="text-align: center; padding: 40px; color: #a0aec0;"><i class="fas fa-spinner fa-spin"></i> 加载中...</td></tr>`;
+  }
+
+  function adminShowError(element, message, colspan) {
+    element.innerHTML = `<tr><td colspan="${colspan}" style="text-align: center; padding: 40px; color: #e53e3e;"><i class="fas fa-exclamation-triangle"></i> ${message}</td></tr>`;
+  }
+
+  function adminUpdatePagination() {
+    adminElements.pageInfo.textContent = `第 ${adminState.currentPage} 页，共 ${adminState.totalPages} 页`;
+    adminElements.prevPage.disabled = adminState.currentPage <= 1;
+    adminElements.nextPage.disabled = adminState.currentPage >= adminState.totalPages;
+  }
+
+  function adminSetupEventListeners() {
+    adminElements.navTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const tabName = tab.getAttribute('data-tab');
+        adminSwitchTab(tabName);
+      });
+    });
+
+    adminElements.bookmarkSearch.addEventListener('input', (e) => {
+      clearTimeout(adminState.searchTimeout);
+      adminState.searchTimeout = setTimeout(() => {
+        adminState.filters.search = e.target.value;
+        adminLoadBookmarks(1);
+      }, 500);
+    });
+
+    adminElements.prevPage.addEventListener('click', () => {
+      if (adminState.currentPage > 1) adminLoadBookmarks(adminState.currentPage - 1);
+    });
+
+    adminElements.nextPage.addEventListener('click', () => {
+      if (adminState.currentPage < adminState.totalPages) adminLoadBookmarks(adminState.currentPage + 1);
+    });
+
+    adminElements.addBookmarkBtn.addEventListener('click', () => alert('添加书签功能开发中'));
+    adminElements.checkDbBtn.addEventListener('click', adminCheckDatabaseStatus);
+  }
+
+  function adminSwitchTab(tabName) {
+    adminElements.navTabs.forEach(tab => {
+      tab.classList.remove('active');
+      if (tab.getAttribute('data-tab') === tabName) tab.classList.add('active');
+    });
+
+    adminElements.tabContents.forEach(content => content.classList.remove('active'));
+
+    const targetContent = document.getElementById(`${tabName}-tab`);
+    if (targetContent) targetContent.classList.add('active');
+
+    adminState.currentTab = tabName;
+
+    if (tabName === 'bookmarks') adminLoadBookmarks();
+  }
+
+  async function adminLoadCategories() {
+    try {
+      const response = await fetch('/api/categories');
+      const data = await response.json();
+
+      if (data.success) {
+        adminState.categories = data.categories || data.data || [];
+      }
+    } catch (error) {
+      console.error('加载分类失败:', error);
+    }
+  }
+
+  async function adminLoadDomains() {
+    try {
+      const response = await fetch('/api/domains');
+      const data = await response.json();
+
+      if (data.success) {
+        adminState.domains = data.domains || data.data || [];
+      }
+    } catch (error) {
+      console.error('加载域名失败:', error);
+    }
+  }
+
+  async function adminLoadStats() {
+    try {
+      const response = await fetch('/api/stats');
+      const data = await response.json();
+
+      if (data.success) {
+        const stats = data.stats || data.data || {};
+        if (adminElements.totalBookmarks) adminElements.totalBookmarks.textContent = stats.bookmarks_count || stats.total_bookmarks || 0;
+        if (adminElements.totalDomains) adminElements.totalDomains.textContent = stats.domains_count || stats.total_domains || 0;
+        if (adminElements.totalCategories) adminElements.totalCategories.textContent = stats.categories_count || stats.total_categories || 0;
+        if (adminElements.dbStatusText) adminElements.dbStatusText.textContent = '正常';
+      }
+    } catch (error) {
+      console.error('加载统计失败:', error);
+      if (adminElements.dbStatusText) adminElements.dbStatusText.textContent = '异常';
+    }
+  }
+
+  window.adminEditBookmark = function(id) { alert(`编辑书签 ${id} 功能开发中`); };
+  window.adminDeleteBookmark = function(id) { if (confirm('确定要删除这个书签吗？')) alert(`删除书签 ${id} 功能开发中`); };
+
+  document.addEventListener('DOMContentLoaded', adminInit);
+}
