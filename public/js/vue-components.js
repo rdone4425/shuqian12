@@ -1,0 +1,1051 @@
+/**
+ * Vue.js 组件定义
+ */
+
+// 主页视图组件
+const HomeView = {
+  template: `
+    <div>
+      <!-- 搜索区域 -->
+      <div class="search-section">
+        <div class="search-container">
+          <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="搜索书签..."
+              class="search-input"
+              @input="debouncedSearch"
+            >
+          </div>
+          <div class="filters">
+            <select v-model="selectedDomain" @change="loadBookmarks" class="filter-select">
+              <option value="">所有网站</option>
+              <option v-for="domain in domains" :key="domain" :value="domain">
+                {{ domain }}
+              </option>
+            </select>
+            <select v-model="selectedCategory" @change="loadBookmarks" class="filter-select">
+              <option value="">所有分类</option>
+              <option v-for="category in categories" :key="category.id" :value="category.id">
+                {{ category.name }}
+              </option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 统计信息 -->
+      <div class="stats-section">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">
+              <i class="fas fa-bookmark"></i>
+            </div>
+            <div class="stat-info">
+              <div class="stat-number">{{ stats.bookmarks || 0 }}</div>
+              <div class="stat-label">书签</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">
+              <i class="fas fa-globe"></i>
+            </div>
+            <div class="stat-info">
+              <div class="stat-number">{{ stats.domains || 0 }}</div>
+              <div class="stat-label">网站</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">
+              <i class="fas fa-folder"></i>
+            </div>
+            <div class="stat-info">
+              <div class="stat-number">{{ stats.categories || 0 }}</div>
+              <div class="stat-label">分类</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 书签列表 -->
+      <div class="bookmarks-section">
+        <div v-if="loading" class="loading">
+          <i class="fas fa-spinner fa-spin"></i>
+          <p>加载中...</p>
+        </div>
+
+        <div v-else-if="bookmarks.length === 0" class="loading">
+          <i class="fas fa-search"></i>
+          <p>没有找到书签</p>
+        </div>
+
+        <div v-else class="bookmarks-grid">
+          <div
+            v-for="bookmark in bookmarks"
+            :key="bookmark.id"
+            class="bookmark-card"
+            @click="openBookmark(bookmark.url)"
+          >
+            <div class="bookmark-header">
+              <div class="bookmark-favicon">
+                <img
+                  :src="getIconUrl(bookmark)"
+                  :alt="bookmark.title + ' 图标'"
+                  loading="lazy"
+                  @error="handleIconError"
+                >
+              </div>
+              <div class="bookmark-domain-info">
+                <span class="bookmark-domain">{{ bookmark.domain }}</span>
+                <span class="bookmark-category">{{ getCategoryName(bookmark.category_id) }}</span>
+              </div>
+            </div>
+            <div class="bookmark-body">
+              <h3 class="bookmark-title">{{ bookmark.title }}</h3>
+              <p class="bookmark-url">{{ bookmark.url }}</p>
+            </div>
+            <div class="bookmark-footer">
+              <span class="bookmark-date">
+                <i class="fas fa-calendar-alt"></i>
+                {{ formatDate(bookmark.created_at) }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 分页 -->
+        <div v-if="totalPages > 1" class="pagination">
+          <button
+            @click="prevPage"
+            :disabled="currentPage <= 1"
+            class="page-btn"
+          >
+            <i class="fas fa-chevron-left"></i>
+            上一页
+          </button>
+          <span class="page-info">第 {{ currentPage }} 页，共 {{ totalPages }} 页</span>
+          <button
+            @click="nextPage"
+            :disabled="currentPage >= totalPages"
+            class="page-btn"
+          >
+            下一页
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  `,
+  setup() {
+    const bookmarks = ref([]);
+    const categories = ref([]);
+    const domains = ref([]);
+    const stats = ref({});
+    const loading = ref(false);
+
+    const searchQuery = ref('');
+    const selectedDomain = ref('');
+    const selectedCategory = ref('');
+    const currentPage = ref(1);
+    const totalPages = ref(1);
+    const itemsPerPage = ref(20);
+
+    // 防抖搜索
+    let searchTimeout;
+    const debouncedSearch = () => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        currentPage.value = 1;
+        loadBookmarks();
+      }, 600);
+    };
+
+    // 加载书签
+    const loadBookmarks = async (page = currentPage.value) => {
+      if (loading.value) return;
+
+      try {
+        loading.value = true;
+        const params = new URLSearchParams({
+          page: page,
+          limit: itemsPerPage.value,
+          domain: selectedDomain.value,
+          category: selectedCategory.value,
+          search: searchQuery.value
+        });
+
+        const response = await fetch(`/api/bookmarks?${params}`);
+        const data = await response.json();
+
+        if (data.success) {
+          bookmarks.value = data.bookmarks || data.data || [];
+          currentPage.value = page;
+          totalPages.value = Math.ceil((data.total || 0) / itemsPerPage.value);
+        } else {
+          console.error('加载书签失败:', data.message);
+          bookmarks.value = [];
+        }
+      } catch (error) {
+        console.error('加载书签失败:', error);
+        bookmarks.value = [];
+      } finally {
+        loading.value = false;
+      }
+    };
+
+    // 加载分类
+    const loadCategories = async () => {
+      try {
+        const response = await fetch('/api/categories');
+        const data = await response.json();
+        if (data.success) {
+          categories.value = data.categories || [];
+        }
+      } catch (error) {
+        console.error('加载分类失败:', error);
+      }
+    };
+
+    // 加载域名
+    const loadDomains = async () => {
+      try {
+        const response = await fetch('/api/domains');
+        const data = await response.json();
+        if (data.success) {
+          domains.value = data.domains || [];
+        }
+      } catch (error) {
+        console.error('加载域名失败:', error);
+      }
+    };
+
+    // 加载统计信息
+    const loadStats = async () => {
+      try {
+        const response = await fetch('/api/stats');
+        const data = await response.json();
+        if (data.success) {
+          const statsData = data.stats || data.data || {};
+          stats.value = {
+            bookmarks: statsData.bookmarks_count || statsData.total_bookmarks || 0,
+            domains: statsData.domains_count || statsData.total_domains || 0,
+            categories: statsData.categories_count || statsData.total_categories || 0
+          };
+        }
+      } catch (error) {
+        console.error('加载统计信息失败:', error);
+      }
+    };
+
+    // 工具函数
+    const getIconUrl = (bookmark) => {
+      return bookmark.icon_url || `https://www.google.com/s2/favicons?domain=${bookmark.domain}&sz=32`;
+    };
+
+    const handleIconError = (event) => {
+      event.target.src = `https://www.google.com/s2/favicons?domain=default&sz=32`;
+    };
+
+    const getCategoryName = (categoryId) => {
+      if (!categoryId) return '未分类';
+      const category = categories.value.find(cat => cat.id === categoryId);
+      return category ? category.name : '未分类';
+    };
+
+    const formatDate = (dateString) => {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      return date.toLocaleDateString('zh-CN');
+    };
+
+    const openBookmark = (url) => {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    };
+
+    const prevPage = () => {
+      if (currentPage.value > 1) {
+        loadBookmarks(currentPage.value - 1);
+      }
+    };
+
+    const nextPage = () => {
+      if (currentPage.value < totalPages.value) {
+        loadBookmarks(currentPage.value + 1);
+      }
+    };
+
+    // 初始化
+    onMounted(async () => {
+      await Promise.all([
+        loadCategories(),
+        loadDomains(),
+        loadStats(),
+        loadBookmarks()
+      ]);
+    });
+
+    return {
+      bookmarks,
+      categories,
+      domains,
+      stats,
+      loading,
+      searchQuery,
+      selectedDomain,
+      selectedCategory,
+      currentPage,
+      totalPages,
+      debouncedSearch,
+      loadBookmarks,
+      getIconUrl,
+      handleIconError,
+      getCategoryName,
+      formatDate,
+      openBookmark,
+      prevPage,
+      nextPage
+    };
+  }
+};
+
+// 管理视图组件
+const AdminView = {
+  template: `
+    <div>
+      <!-- 标签页导航 -->
+      <div class="admin-tabs">
+        <button
+          v-for="tab in tabs"
+          :key="tab.id"
+          @click="activeTab = tab.id"
+          :class="['tab-btn', { active: activeTab === tab.id }]"
+        >
+          <i :class="tab.icon"></i>
+          {{ tab.name }}
+        </button>
+      </div>
+
+      <!-- 标签页内容 -->
+      <div class="tab-content">
+        <!-- 书签管理 -->
+        <div v-if="activeTab === 'bookmarks'" class="tab-panel">
+          <div class="panel-header">
+            <h2>书签管理</h2>
+            <button @click="showAddBookmark = true" class="btn btn-primary">
+              <i class="fas fa-plus"></i>
+              添加书签
+            </button>
+          </div>
+
+          <div class="admin-toolbar">
+            <div class="search-box">
+              <i class="fas fa-search"></i>
+              <input
+                v-model="bookmarkSearch"
+                type="text"
+                placeholder="搜索书签..."
+                @input="debouncedBookmarkSearch"
+              >
+            </div>
+            <div class="filters">
+              <select v-model="bookmarkDomainFilter" @change="loadAdminBookmarks">
+                <option value="">所有域名</option>
+                <option v-for="domain in domains" :key="domain" :value="domain">
+                  {{ domain }}
+                </option>
+              </select>
+              <select v-model="bookmarkCategoryFilter" @change="loadAdminBookmarks">
+                <option value="">所有分类</option>
+                <option v-for="category in categories" :key="category.id" :value="category.id">
+                  {{ category.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>标题</th>
+                  <th>域名</th>
+                  <th>分类</th>
+                  <th>创建时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="adminLoading">
+                  <td colspan="5" class="loading-cell">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    加载中...
+                  </td>
+                </tr>
+                <tr v-else-if="adminBookmarks.length === 0">
+                  <td colspan="5" class="empty-cell">暂无数据</td>
+                </tr>
+                <tr v-else v-for="bookmark in adminBookmarks" :key="bookmark.id">
+                  <td>
+                    <div class="bookmark-title-cell">
+                      <img
+                        :src="getIconUrl(bookmark)"
+                        :alt="bookmark.title"
+                        class="table-icon"
+                        @error="handleIconError"
+                      >
+                      <span>{{ bookmark.title }}</span>
+                    </div>
+                  </td>
+                  <td>{{ bookmark.domain }}</td>
+                  <td>{{ getCategoryName(bookmark.category_id) }}</td>
+                  <td>{{ formatDate(bookmark.created_at) }}</td>
+                  <td>
+                    <div class="actions">
+                      <button @click="editBookmark(bookmark)" class="btn-sm btn-edit">
+                        <i class="fas fa-edit"></i>
+                      </button>
+                      <button @click="deleteBookmark(bookmark.id)" class="btn-sm btn-delete">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 分页 -->
+          <div v-if="adminTotalPages > 1" class="pagination">
+            <button
+              @click="prevAdminPage"
+              :disabled="adminCurrentPage <= 1"
+              class="page-btn"
+            >
+              <i class="fas fa-chevron-left"></i>
+              上一页
+            </button>
+            <span class="page-info">第 {{ adminCurrentPage }} 页，共 {{ adminTotalPages }} 页</span>
+            <button
+              @click="nextAdminPage"
+              :disabled="adminCurrentPage >= adminTotalPages"
+              class="page-btn"
+            >
+              下一页
+              <i class="fas fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- 分类管理 -->
+        <div v-if="activeTab === 'categories'" class="tab-panel">
+          <div class="panel-header">
+            <h2>分类管理</h2>
+            <button @click="showAddCategory = true" class="btn btn-primary">
+              <i class="fas fa-plus"></i>
+              添加分类
+            </button>
+          </div>
+
+          <div class="table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>分类名称</th>
+                  <th>父分类</th>
+                  <th>书签数量</th>
+                  <th>创建时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="categoriesLoading">
+                  <td colspan="5" class="loading-cell">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    加载中...
+                  </td>
+                </tr>
+                <tr v-else-if="categories.length === 0">
+                  <td colspan="5" class="empty-cell">暂无数据</td>
+                </tr>
+                <tr v-else v-for="category in categories" :key="category.id">
+                  <td>{{ category.name }}</td>
+                  <td>{{ getParentCategoryName(category.parent_id) }}</td>
+                  <td>{{ category.bookmark_count || 0 }}</td>
+                  <td>{{ formatDate(category.created_at) }}</td>
+                  <td>
+                    <div class="actions">
+                      <button @click="editCategory(category)" class="btn-sm btn-edit">
+                        <i class="fas fa-edit"></i>
+                      </button>
+                      <button @click="deleteCategory(category.id)" class="btn-sm btn-delete">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 数据库管理 -->
+        <div v-if="activeTab === 'database'" class="tab-panel">
+          <div class="panel-header">
+            <h2>数据库管理</h2>
+          </div>
+
+          <div class="database-cards">
+            <div class="db-card">
+              <h3><i class="fas fa-search"></i> 数据库检查</h3>
+              <p>检查D1数据库绑定状态和表结构完整性</p>
+              <button @click="checkDatabase" class="btn btn-primary" :disabled="dbLoading">
+                <i class="fas fa-search"></i>
+                检查数据库
+              </button>
+            </div>
+
+            <div class="db-card">
+              <h3><i class="fas fa-magic"></i> 数据库初始化</h3>
+              <p>创建书签系统所需的所有数据表和索引</p>
+              <button @click="initDatabase" class="btn btn-success" :disabled="dbLoading">
+                <i class="fas fa-play"></i>
+                初始化数据库
+              </button>
+            </div>
+
+            <div class="db-card">
+              <h3><i class="fas fa-download"></i> 数据导出</h3>
+              <p>导出所有书签数据为JSON格式</p>
+              <button @click="exportData" class="btn btn-info" :disabled="dbLoading">
+                <i class="fas fa-download"></i>
+                导出数据
+              </button>
+            </div>
+
+            <div class="db-card">
+              <h3><i class="fas fa-upload"></i> 数据导入</h3>
+              <p>从JSON文件导入书签数据</p>
+              <input
+                type="file"
+                ref="fileInput"
+                @change="importData"
+                accept=".json"
+                style="display: none"
+              >
+              <button @click="$refs.fileInput.click()" class="btn btn-warning" :disabled="dbLoading">
+                <i class="fas fa-upload"></i>
+                导入数据
+              </button>
+            </div>
+          </div>
+
+          <!-- 数据库状态 -->
+          <div class="db-status">
+            <h3>数据库状态</h3>
+            <div class="status-info">
+              <div class="status-item">
+                <span class="label">连接状态:</span>
+                <span :class="['status', dbStatus.connected ? 'success' : 'error']">
+                  {{ dbStatus.connected ? '已连接' : '未连接' }}
+                </span>
+              </div>
+              <div class="status-item">
+                <span class="label">表结构:</span>
+                <span :class="['status', dbStatus.tablesExist ? 'success' : 'warning']">
+                  {{ dbStatus.tablesExist ? '正常' : '需要初始化' }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 设置 -->
+        <div v-if="activeTab === 'settings'" class="tab-panel">
+          <div class="panel-header">
+            <h2>系统设置</h2>
+          </div>
+
+          <div class="settings-cards">
+            <div class="settings-card">
+              <h3>显示设置</h3>
+              <div class="form-group">
+                <label>每页显示数量</label>
+                <select v-model="settings.itemsPerPage">
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                </select>
+              </div>
+              <button @click="saveSettings" class="btn btn-primary">
+                <i class="fas fa-save"></i>
+                保存设置
+              </button>
+            </div>
+
+            <div class="settings-card">
+              <h3>统计信息</h3>
+              <div class="stats-list">
+                <div class="stat-item">
+                  <span class="label">书签总数:</span>
+                  <span class="value">{{ adminStats.bookmarks || 0 }}</span>
+                </div>
+                <div class="stat-item">
+                  <span class="label">域名总数:</span>
+                  <span class="value">{{ adminStats.domains || 0 }}</span>
+                </div>
+                <div class="stat-item">
+                  <span class="label">分类总数:</span>
+                  <span class="value">{{ adminStats.categories || 0 }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 模态框等组件会在后续添加 -->
+    </div>
+  `,
+  setup() {
+    // 标签页配置
+    const tabs = [
+      { id: 'bookmarks', name: '书签管理', icon: 'fas fa-bookmark' },
+      { id: 'categories', name: '分类管理', icon: 'fas fa-folder' },
+      { id: 'database', name: '数据库', icon: 'fas fa-database' },
+      { id: 'settings', name: '设置', icon: 'fas fa-cog' }
+    ];
+
+    // 响应式数据
+    const activeTab = ref('bookmarks');
+
+    // 书签管理相关
+    const adminBookmarks = ref([]);
+    const adminLoading = ref(false);
+    const adminCurrentPage = ref(1);
+    const adminTotalPages = ref(1);
+    const bookmarkSearch = ref('');
+    const bookmarkDomainFilter = ref('');
+    const bookmarkCategoryFilter = ref('');
+
+    // 分类管理相关
+    const categories = ref([]);
+    const categoriesLoading = ref(false);
+
+    // 域名数据
+    const domains = ref([]);
+
+    // 数据库管理相关
+    const dbLoading = ref(false);
+    const dbStatus = ref({
+      connected: false,
+      tablesExist: false
+    });
+
+    // 设置相关
+    const settings = ref({
+      itemsPerPage: 20
+    });
+
+    // 统计信息
+    const adminStats = ref({
+      bookmarks: 0,
+      domains: 0,
+      categories: 0
+    });
+
+    // 模态框状态
+    const showAddBookmark = ref(false);
+    const showAddCategory = ref(false);
+
+    // 防抖搜索
+    let bookmarkSearchTimeout;
+    const debouncedBookmarkSearch = () => {
+      clearTimeout(bookmarkSearchTimeout);
+      bookmarkSearchTimeout = setTimeout(() => {
+        adminCurrentPage.value = 1;
+        loadAdminBookmarks();
+      }, 600);
+    };
+
+    // 加载管理后台书签
+    const loadAdminBookmarks = async (page = adminCurrentPage.value) => {
+      if (adminLoading.value) return;
+
+      try {
+        adminLoading.value = true;
+        const params = new URLSearchParams({
+          page: page,
+          limit: 20,
+          domain: bookmarkDomainFilter.value,
+          category: bookmarkCategoryFilter.value,
+          search: bookmarkSearch.value
+        });
+
+        const response = await fetch(`/api/bookmarks?${params}`);
+        const data = await response.json();
+
+        if (data.success) {
+          adminBookmarks.value = data.bookmarks || data.data || [];
+          adminCurrentPage.value = page;
+          adminTotalPages.value = Math.ceil((data.total || 0) / 20);
+        } else {
+          console.error('加载书签失败:', data.message);
+          adminBookmarks.value = [];
+        }
+      } catch (error) {
+        console.error('加载书签失败:', error);
+        adminBookmarks.value = [];
+      } finally {
+        adminLoading.value = false;
+      }
+    };
+
+    // 加载分类
+    const loadCategories = async () => {
+      try {
+        categoriesLoading.value = true;
+        const response = await fetch('/api/categories');
+        const data = await response.json();
+        if (data.success) {
+          categories.value = data.categories || [];
+        }
+      } catch (error) {
+        console.error('加载分类失败:', error);
+      } finally {
+        categoriesLoading.value = false;
+      }
+    };
+
+    // 加载域名
+    const loadDomains = async () => {
+      try {
+        const response = await fetch('/api/domains');
+        const data = await response.json();
+        if (data.success) {
+          domains.value = data.domains || [];
+        }
+      } catch (error) {
+        console.error('加载域名失败:', error);
+      }
+    };
+
+    // 加载统计信息
+    const loadAdminStats = async () => {
+      try {
+        const response = await fetch('/api/stats');
+        const data = await response.json();
+        if (data.success) {
+          const statsData = data.stats || data.data || {};
+          adminStats.value = {
+            bookmarks: statsData.bookmarks_count || statsData.total_bookmarks || 0,
+            domains: statsData.domains_count || statsData.total_domains || 0,
+            categories: statsData.categories_count || statsData.total_categories || 0
+          };
+        }
+      } catch (error) {
+        console.error('加载统计信息失败:', error);
+      }
+    };
+
+    // 检查数据库
+    const checkDatabase = async () => {
+      try {
+        dbLoading.value = true;
+        const response = await fetch('/api/check-database');
+        const data = await response.json();
+
+        if (data.success) {
+          dbStatus.value = {
+            connected: data.database_connected || false,
+            tablesExist: data.tables_exist || false
+          };
+          alert('数据库检查完成');
+        } else {
+          alert('数据库检查失败: ' + data.message);
+        }
+      } catch (error) {
+        console.error('检查数据库失败:', error);
+        alert('检查数据库失败: ' + error.message);
+      } finally {
+        dbLoading.value = false;
+      }
+    };
+
+    // 初始化数据库
+    const initDatabase = async () => {
+      if (!confirm('确定要初始化数据库吗？这将创建所有必要的表结构。')) {
+        return;
+      }
+
+      try {
+        dbLoading.value = true;
+        const response = await fetch('/api/init-database', { method: 'POST' });
+        const data = await response.json();
+
+        if (data.success) {
+          alert('数据库初始化成功');
+          await checkDatabase(); // 重新检查状态
+        } else {
+          alert('数据库初始化失败: ' + data.message);
+        }
+      } catch (error) {
+        console.error('初始化数据库失败:', error);
+        alert('初始化数据库失败: ' + error.message);
+      } finally {
+        dbLoading.value = false;
+      }
+    };
+
+    // 导出数据
+    const exportData = async () => {
+      try {
+        dbLoading.value = true;
+        const response = await fetch('/api/export');
+        const data = await response.json();
+
+        if (data.success) {
+          // 创建下载链接
+          const blob = new Blob([JSON.stringify(data.data, null, 2)], {
+            type: 'application/json'
+          });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `bookmarks-export-${new Date().toISOString().split('T')[0]}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+
+          alert('数据导出成功');
+        } else {
+          alert('数据导出失败: ' + data.message);
+        }
+      } catch (error) {
+        console.error('导出数据失败:', error);
+        alert('导出数据失败: ' + error.message);
+      } finally {
+        dbLoading.value = false;
+      }
+    };
+
+    // 导入数据
+    const importData = async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      if (!confirm('确定要导入数据吗？这将覆盖现有的书签数据。')) {
+        event.target.value = '';
+        return;
+      }
+
+      try {
+        dbLoading.value = true;
+        const text = await file.text();
+        const jsonData = JSON.parse(text);
+
+        const response = await fetch('/api/import', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(jsonData)
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          alert('数据导入成功');
+          await loadAdminBookmarks(); // 重新加载书签
+          await loadAdminStats(); // 重新加载统计
+        } else {
+          alert('数据导入失败: ' + data.message);
+        }
+      } catch (error) {
+        console.error('导入数据失败:', error);
+        alert('导入数据失败: ' + error.message);
+      } finally {
+        dbLoading.value = false;
+        event.target.value = '';
+      }
+    };
+
+    // 保存设置
+    const saveSettings = async () => {
+      try {
+        const response = await fetch('/api/settings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            items_per_page: settings.value.itemsPerPage
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          alert('设置保存成功');
+        } else {
+          alert('设置保存失败: ' + data.message);
+        }
+      } catch (error) {
+        console.error('保存设置失败:', error);
+        alert('保存设置失败: ' + error.message);
+      }
+    };
+
+    // 工具函数
+    const getIconUrl = (bookmark) => {
+      return bookmark.icon_url || `https://www.google.com/s2/favicons?domain=${bookmark.domain}&sz=32`;
+    };
+
+    const handleIconError = (event) => {
+      event.target.src = `https://www.google.com/s2/favicons?domain=default&sz=32`;
+    };
+
+    const getCategoryName = (categoryId) => {
+      if (!categoryId) return '未分类';
+      const category = categories.value.find(cat => cat.id === categoryId);
+      return category ? category.name : '未分类';
+    };
+
+    const getParentCategoryName = (parentId) => {
+      if (!parentId) return '无';
+      const category = categories.value.find(cat => cat.id === parentId);
+      return category ? category.name : '无';
+    };
+
+    const formatDate = (dateString) => {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      return date.toLocaleDateString('zh-CN');
+    };
+
+    // 分页函数
+    const prevAdminPage = () => {
+      if (adminCurrentPage.value > 1) {
+        loadAdminBookmarks(adminCurrentPage.value - 1);
+      }
+    };
+
+    const nextAdminPage = () => {
+      if (adminCurrentPage.value < adminTotalPages.value) {
+        loadAdminBookmarks(adminCurrentPage.value + 1);
+      }
+    };
+
+    // 编辑和删除函数（简化版）
+    const editBookmark = (bookmark) => {
+      alert('编辑功能待实现');
+    };
+
+    const deleteBookmark = async (id) => {
+      if (!confirm('确定要删除这个书签吗？')) return;
+
+      try {
+        const response = await fetch(`/api/bookmarks/${id}`, { method: 'DELETE' });
+        const data = await response.json();
+
+        if (data.success) {
+          alert('删除成功');
+          await loadAdminBookmarks();
+        } else {
+          alert('删除失败: ' + data.message);
+        }
+      } catch (error) {
+        alert('删除失败: ' + error.message);
+      }
+    };
+
+    const editCategory = (category) => {
+      alert('编辑功能待实现');
+    };
+
+    const deleteCategory = async (id) => {
+      if (!confirm('确定要删除这个分类吗？')) return;
+
+      try {
+        const response = await fetch(`/api/categories/${id}`, { method: 'DELETE' });
+        const data = await response.json();
+
+        if (data.success) {
+          alert('删除成功');
+          await loadCategories();
+        } else {
+          alert('删除失败: ' + data.message);
+        }
+      } catch (error) {
+        alert('删除失败: ' + error.message);
+      }
+    };
+
+    // 初始化时加载数据
+    onMounted(async () => {
+      await Promise.all([
+        loadCategories(),
+        loadDomains(),
+        loadAdminStats(),
+        loadAdminBookmarks()
+      ]);
+    });
+
+    // 监听标签页切换
+    watch(activeTab, (newTab) => {
+      if (newTab === 'bookmarks') {
+        loadAdminBookmarks();
+      } else if (newTab === 'categories') {
+        loadCategories();
+      } else if (newTab === 'database') {
+        checkDatabase();
+      } else if (newTab === 'settings') {
+        loadAdminStats();
+      }
+    });
+
+    return {
+      tabs,
+      activeTab,
+      adminBookmarks,
+      adminLoading,
+      adminCurrentPage,
+      adminTotalPages,
+      bookmarkSearch,
+      bookmarkDomainFilter,
+      bookmarkCategoryFilter,
+      categories,
+      categoriesLoading,
+      domains,
+      dbLoading,
+      dbStatus,
+      settings,
+      adminStats,
+      showAddBookmark,
+      showAddCategory,
+      debouncedBookmarkSearch,
+      loadAdminBookmarks,
+      loadCategories,
+      loadDomains,
+      loadAdminStats,
+      checkDatabase,
+      initDatabase,
+      exportData,
+      importData,
+      saveSettings,
+      getIconUrl,
+      handleIconError,
+      getCategoryName,
+      getParentCategoryName,
+      formatDate,
+      prevAdminPage,
+      nextAdminPage,
+      editBookmark,
+      deleteBookmark,
+      editCategory,
+      deleteCategory
+    };
+  }
+};
