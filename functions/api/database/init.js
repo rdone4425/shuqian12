@@ -118,7 +118,44 @@ export async function onRequest(context) {
       results.push('❌ 设置表创建失败: ' + error.message);
     }
 
-    // 5. 创建同步日志表
+    // 5. 创建用户表
+    try {
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS users (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT NOT NULL UNIQUE,
+          password_hash TEXT NOT NULL,
+          email TEXT,
+          role TEXT DEFAULT 'admin',
+          last_login DATETIME,
+          login_attempts INTEGER DEFAULT 0,
+          locked_until DATETIME,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `).run();
+      results.push('✅ 用户表创建成功');
+    } catch (error) {
+      results.push('❌ 用户表创建失败: ' + error.message);
+    }
+
+    // 6. 创建会话表
+    try {
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS sessions (
+          id TEXT PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          expires_at DATETIME NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+      `).run();
+      results.push('✅ 会话表创建成功');
+    } catch (error) {
+      results.push('❌ 会话表创建失败: ' + error.message);
+    }
+
+    // 7. 创建同步日志表
     try {
       await db.prepare(`
         CREATE TABLE IF NOT EXISTS sync_logs (
@@ -137,7 +174,7 @@ export async function onRequest(context) {
       results.push('❌ 同步日志表创建失败: ' + error.message);
     }
 
-    // 6. 创建索引（分别创建，避免批量执行问题）
+    // 8. 创建索引（分别创建，避免批量执行问题）
     const indexes = [
       { name: 'idx_bookmarks_domain', sql: 'CREATE INDEX IF NOT EXISTS idx_bookmarks_domain ON bookmarks(domain)' },
       { name: 'idx_bookmarks_category', sql: 'CREATE INDEX IF NOT EXISTS idx_bookmarks_category ON bookmarks(category_id)' },
@@ -147,7 +184,10 @@ export async function onRequest(context) {
       { name: 'idx_sync_logs_type', sql: 'CREATE INDEX IF NOT EXISTS idx_sync_logs_type ON sync_logs(type)' },
       { name: 'idx_sync_logs_level', sql: 'CREATE INDEX IF NOT EXISTS idx_sync_logs_level ON sync_logs(level)' },
       { name: 'idx_domains_domain', sql: 'CREATE UNIQUE INDEX IF NOT EXISTS idx_domains_domain ON domains(domain)' },
-      { name: 'idx_settings_key', sql: 'CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_key ON settings(key)' }
+      { name: 'idx_settings_key', sql: 'CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_key ON settings(key)' },
+      { name: 'idx_users_username', sql: 'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)' },
+      { name: 'idx_sessions_user_id', sql: 'CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)' },
+      { name: 'idx_sessions_expires', sql: 'CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at)' }
     ];
 
     for (const index of indexes) {
@@ -159,13 +199,18 @@ export async function onRequest(context) {
       }
     }
 
-    // 7. 插入默认设置
+    // 9. 插入默认设置
     try {
       const defaultSettings = [
         { key: 'items_per_page', value: '20', description: '每页显示数量' },
         { key: 'auto_sync', value: 'true', description: '自动同步' },
         { key: 'sync_interval', value: '300', description: '同步间隔（秒）' },
-        { key: 'theme', value: 'light', description: '主题设置' }
+        { key: 'theme', value: 'light', description: '主题设置' },
+        { key: 'admin_path', value: '', description: '管理后台访问路径（为空表示使用默认路径）' },
+        { key: 'require_login', value: 'false', description: '是否需要登录访问管理后台' },
+        { key: 'session_timeout', value: '86400', description: '会话超时时间（秒）' },
+        { key: 'max_login_attempts', value: '5', description: '最大登录尝试次数' },
+        { key: 'lockout_duration', value: '1800', description: '账户锁定时间（秒）' }
       ];
 
       for (const setting of defaultSettings) {
@@ -183,7 +228,7 @@ export async function onRequest(context) {
       results.push('❌ 默认设置插入失败: ' + error.message);
     }
 
-    // 8. 插入默认分类
+    // 10. 插入默认分类
     try {
       const defaultCategories = [
         { name: '工作', description: '工作相关的书签' },

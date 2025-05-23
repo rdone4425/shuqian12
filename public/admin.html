@@ -671,6 +671,14 @@
               <span>书签管理后台</span>
             </div>
             <div class="nav-actions">
+              <span v-if="currentUser" class="nav-btn" style="background: rgba(102, 126, 234, 0.1); color: #667eea;">
+                <i class="fas fa-user"></i>
+                {{ currentUser.username }}
+              </span>
+              <button v-if="currentUser" @click="logout" class="nav-btn" style="background: rgba(229, 62, 62, 0.1); color: #e53e3e;">
+                <i class="fas fa-sign-out-alt"></i>
+                登出
+              </button>
               <a href="index.html" class="nav-btn" title="返回前台">
                 <i class="fas fa-home"></i>
                 返回前台
@@ -687,21 +695,104 @@
 
           <!-- 主要内容 -->
           <main class="main-content">
-            <admin-view></admin-view>
+            <div v-if="isLoading" style="text-align: center; padding: 40px;">
+              <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: #667eea;"></i>
+              <p style="margin-top: 16px; color: #718096;">正在验证身份...</p>
+            </div>
+            <admin-view v-else></admin-view>
           </main>
         </div>
       `,
       setup() {
         const isDark = ref(false);
+        const currentUser = ref(null);
+        const isLoading = ref(true);
 
         const toggleTheme = () => {
           isDark.value = !isDark.value;
           document.body.classList.toggle('dark-theme', isDark.value);
         };
 
+        // 检查数据库初始化状态
+        const checkDatabaseInit = async () => {
+          try {
+            // 先检查数据库是否已初始化
+            const response = await fetch('/api/system/stats');
+
+            if (response.status === 500) {
+              // 数据库可能未初始化，显示初始化界面
+              return false;
+            }
+
+            return true;
+          } catch (error) {
+            console.error('数据库检查失败:', error);
+            return false;
+          }
+        };
+
+        // 检查认证状态
+        const checkAuth = async () => {
+          try {
+            // 首先检查数据库是否已初始化
+            const dbInitialized = await checkDatabaseInit();
+
+            if (!dbInitialized) {
+              // 数据库未初始化，跳转到设置页面
+              window.location.href = '/setup.html';
+              return;
+            }
+
+            const response = await fetch('/api/auth/users');
+            const data = await response.json();
+
+            if (response.status === 401) {
+              if (!data.hasUsers) {
+                // 没有用户，跳转到登录页面进行初始设置
+                window.location.href = '/login.html';
+                return;
+              } else {
+                // 需要登录
+                window.location.href = '/login.html';
+                return;
+              }
+            }
+
+            if (data.success && data.users) {
+              // 已登录，获取当前用户信息
+              currentUser.value = { username: 'admin' }; // 简化处理
+            }
+          } catch (error) {
+            console.error('认证检查失败:', error);
+            // 如果是网络错误，可能是数据库未初始化，跳转到设置页面
+            window.location.href = '/setup.html';
+          } finally {
+            isLoading.value = false;
+          }
+        };
+
+        // 登出
+        const logout = async () => {
+          try {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            window.location.href = '/login.html';
+          } catch (error) {
+            console.error('登出失败:', error);
+            window.location.href = '/login.html';
+          }
+        };
+
+        // 页面加载时检查认证
+        onMounted(() => {
+          checkAuth();
+        });
+
         return {
           isDark,
-          toggleTheme
+          currentUser,
+          isLoading,
+          toggleTheme,
+          logout
         };
       }
     };

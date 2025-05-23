@@ -351,20 +351,51 @@
 
           <!-- 主要内容 -->
           <main class="main-content">
-            <home-view></home-view>
+            <div v-if="needsSetup" style="text-align: center; padding: 40px;">
+              <div style="background: rgba(255, 255, 255, 0.95); border-radius: 12px; padding: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+                <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #ed8936; margin-bottom: 1rem;"></i>
+                <h2 style="color: #2d3748; margin-bottom: 1rem;">系统需要初始化</h2>
+                <p style="color: #718096; margin-bottom: 2rem;">检测到数据库尚未初始化，请先完成系统设置。</p>
+                <a href="/setup.html" class="btn btn-primary" style="text-decoration: none;">
+                  <i class="fas fa-rocket"></i>
+                  开始初始化
+                </a>
+              </div>
+            </div>
+            <home-view v-else></home-view>
           </main>
         </div>
       `,
       setup() {
         const isDark = ref(false);
+        const needsSetup = ref(false);
 
         const toggleTheme = () => {
           isDark.value = !isDark.value;
           document.body.classList.toggle('dark-theme', isDark.value);
         };
 
+        // 检查数据库初始化状态
+        const checkDatabaseInit = async () => {
+          try {
+            const response = await fetch('/api/system/stats');
+            if (response.status === 500) {
+              needsSetup.value = true;
+            }
+          } catch (error) {
+            console.error('数据库检查失败:', error);
+            needsSetup.value = true;
+          }
+        };
+
+        // 页面加载时检查
+        onMounted(() => {
+          checkDatabaseInit();
+        });
+
         return {
           isDark,
+          needsSetup,
           toggleTheme
         };
       }
