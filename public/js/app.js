@@ -573,11 +573,15 @@ if (window.location.pathname.includes('admin.html')) {
     currentTab: 'bookmarks',
     currentPage: 1,
     totalPages: 1,
-    itemsPerPage: 20,
+    itemsPerPage: 10, // 减少每页数量，提高加载速度
     bookmarks: [],
     categories: [],
     domains: [],
-    filters: { domain: '', category: '', search: '' }
+    filters: { domain: '', category: '', search: '' },
+    isLoading: false, // 添加加载状态，防止重复请求
+    cache: new Map(), // 添加缓存机制
+    lastRequestKey: '', // 记录最后一次请求的key
+    stateRestored: false // 标记是否已恢复状态
   };
 
   const adminElements = {
@@ -606,14 +610,115 @@ if (window.location.pathname.includes('admin.html')) {
     saveSettingsBtn: document.getElementById('save-settings-btn')
   };
 
+  // 保存状态到URL和localStorage
+  function adminSaveState() {
+    const state = {
+      tab: adminState.currentTab,
+      page: adminState.currentPage,
+      filters: adminState.filters,
+      itemsPerPage: adminState.itemsPerPage
+    };
+
+    // 保存到localStorage
+    localStorage.setItem('adminState', JSON.stringify(state));
+
+    // 更新URL参数
+    const url = new URL(window.location);
+    url.searchParams.set('tab', adminState.currentTab);
+    url.searchParams.set('page', adminState.currentPage);
+
+    // 清除空的参数
+    if (adminState.filters.search) {
+      url.searchParams.set('search', adminState.filters.search);
+    } else {
+      url.searchParams.delete('search');
+    }
+
+    if (adminState.filters.domain) {
+      url.searchParams.set('domain', adminState.filters.domain);
+    } else {
+      url.searchParams.delete('domain');
+    }
+
+    if (adminState.filters.category) {
+      url.searchParams.set('category', adminState.filters.category);
+    } else {
+      url.searchParams.delete('category');
+    }
+
+    // 使用replaceState避免产生过多历史记录
+    window.history.replaceState(null, '', url.toString());
+  }
+
+  // 从URL和localStorage恢复状态
+  function adminRestoreState() {
+    try {
+      // 优先从URL参数恢复
+      const url = new URL(window.location);
+      const urlTab = url.searchParams.get('tab');
+      const urlPage = url.searchParams.get('page');
+      const urlSearch = url.searchParams.get('search');
+      const urlDomain = url.searchParams.get('domain');
+      const urlCategory = url.searchParams.get('category');
+
+      if (urlTab || urlPage || urlSearch || urlDomain || urlCategory) {
+        // 从URL恢复状态
+        if (urlTab) adminState.currentTab = urlTab;
+        if (urlPage) adminState.currentPage = parseInt(urlPage) || 1;
+        if (urlSearch) adminState.filters.search = urlSearch;
+        if (urlDomain) adminState.filters.domain = urlDomain;
+        if (urlCategory) adminState.filters.category = urlCategory;
+
+        console.log('📍 从URL恢复状态:', { tab: adminState.currentTab, page: adminState.currentPage, filters: adminState.filters });
+        return true;
+      }
+
+      // 从localStorage恢复状态
+      const savedState = localStorage.getItem('adminState');
+      if (savedState) {
+        const state = JSON.parse(savedState);
+        adminState.currentTab = state.tab || 'bookmarks';
+        adminState.currentPage = state.page || 1;
+        adminState.filters = { ...adminState.filters, ...state.filters };
+        adminState.itemsPerPage = state.itemsPerPage || 10;
+
+        console.log('💾 从localStorage恢复状态:', state);
+        return true;
+      }
+    } catch (error) {
+      console.error('恢复状态失败:', error);
+    }
+
+    return false;
+  }
+
   async function adminInit() {
     try {
+      console.log('🚀 开始初始化管理后台...');
+      const initStartTime = Date.now();
+
+      // 恢复页面状态
+      const stateRestored = adminRestoreState();
+      adminState.stateRestored = stateRestored;
+
       await adminCheckDatabaseStatus();
       await adminLoadData();
       adminSetupEventListeners();
-      console.log('管理后台初始化完成');
+
+      // 恢复UI状态
+      if (stateRestored) {
+        adminRestoreUI();
+      }
+
+      const initTime = Date.now() - initStartTime;
+      console.log(`✅ 管理后台初始化完成 - 总耗时: ${initTime}ms`);
+
+      // 显示性能提示
+      if (initTime > 3000) {
+        console.warn('⚠️ 初始化时间较长，建议检查网络连接或API性能');
+      }
     } catch (error) {
-      console.error('初始化失败:', error);
+      console.error('❌ 初始化失败:', error);
     }
   }
 
@@ -638,12 +743,93 @@ if (window.location.pathname.includes('admin.html')) {
     }
   }
 
+  // 恢复UI状态
+  function adminRestoreUI() {
+    // 恢复标签页
+    adminSwitchTab(adminState.currentTab, false); // false表示不重新加载数据
+
+    // 恢复搜索框
+    if (adminElements.bookmarkSearch && adminState.filters.search) {
+      adminElements.bookmarkSearch.value = adminState.filters.search;
+    }
+
+    // 恢复筛选器（需要等待数据加载完成）
+    setTimeout(() => {
+      if (adminElements.domainFilter && adminState.filters.domain) {
+        adminElements.domainFilter.value = adminState.filters.domain;
+      }
+      if (adminElements.categoryFilter && adminState.filters.category) {
+        adminElements.categoryFilter.value = adminState.filters.category;
+      }
+    }, 200);
+  }
+
   async function adminLoadData() {
-    await Promise.all([adminLoadBookmarks(), adminLoadCategories(), adminLoadDomains(), adminLoadStats()]);
+    // 根据当前标签页决定加载顺序
+    if (adminState.currentTab === 'bookmarks') {
+      // 优先加载书签
+      await adminLoadBookmarks(adminState.currentPage);
+
+      // 延迟加载其他数据
+      setTimeout(() => {
+        adminLoadCategories();
+        adminLoadDomains();
+        adminLoadStats();
+      }, 100);
+    } else if (adminState.currentTab === 'categories') {
+      // 优先加载分类
+      await adminLoadCategories();
+
+      setTimeout(() => {
+        adminLoadBookmarks();
+        adminLoadDomains();
+        adminLoadStats();
+      }, 100);
+    } else if (adminState.currentTab === 'settings') {
+      // 优先加载统计
+      await adminLoadStats();
+
+      setTimeout(() => {
+        adminLoadBookmarks();
+        adminLoadCategories();
+        adminLoadDomains();
+      }, 100);
+    } else {
+      // 默认加载顺序
+      await adminLoadBookmarks();
+
+      setTimeout(() => {
+        adminLoadCategories();
+        adminLoadDomains();
+        adminLoadStats();
+      }, 100);
+    }
   }
 
   async function adminLoadBookmarks(page = 1) {
+    // 防止重复请求
+    if (adminState.isLoading) {
+      console.log('正在加载中，跳过重复请求');
+      return;
+    }
+
+    // 生成缓存key
+    const cacheKey = `${page}-${adminState.itemsPerPage}-${adminState.filters.domain}-${adminState.filters.category}-${adminState.filters.search}`;
+
+    // 检查缓存
+    if (adminState.cache.has(cacheKey) && cacheKey === adminState.lastRequestKey) {
+      console.log('使用缓存数据');
+      const cachedData = adminState.cache.get(cacheKey);
+      adminState.bookmarks = cachedData.bookmarks;
+      adminState.currentPage = cachedData.currentPage;
+      adminState.totalPages = cachedData.totalPages;
+      adminRenderBookmarks();
+      adminUpdatePagination();
+      return;
+    }
+
     try {
+      adminState.isLoading = true;
       adminShowLoading(adminElements.bookmarksTable, 6);
 
       const params = new URLSearchParams({
@@ -654,21 +840,47 @@ if (window.location.pathname.includes('admin.html')) {
         search: adminState.filters.search
       });
 
+      console.log(`开始加载书签 - 第${page}页`);
+      const startTime = Date.now();
+
       const response = await fetch(`/api/bookmarks?${params}`);
       const data = await response.json();
+
+      const loadTime = Date.now() - startTime;
+      console.log(`书签加载完成 - 耗时: ${loadTime}ms`);
 
       if (data.success) {
         adminState.bookmarks = data.bookmarks || data.data || [];
         adminState.currentPage = page;
         adminState.totalPages = Math.ceil((data.total || 0) / adminState.itemsPerPage);
+
+        // 保存到缓存
+        adminState.cache.set(cacheKey, {
+          bookmarks: adminState.bookmarks,
+          currentPage: adminState.currentPage,
+          totalPages: adminState.totalPages
+        });
+        adminState.lastRequestKey = cacheKey;
+
+        // 限制缓存大小，只保留最近10个请求
+        if (adminState.cache.size > 10) {
+          const firstKey = adminState.cache.keys().next().value;
+          adminState.cache.delete(firstKey);
+        }
+
         adminRenderBookmarks();
         adminUpdatePagination();
+
+        // 保存状态
+        adminSaveState();
       } else {
         adminShowError(adminElements.bookmarksTable, '加载书签失败', 6);
       }
     } catch (error) {
       console.error('加载书签失败:', error);
-      adminShowError(adminElements.bookmarksTable, '加载书签失败', 6);
+      adminShowError(adminElements.bookmarksTable, '网络错误，请检查API连接', 6);
+    } finally {
+      adminState.isLoading = false;
     }
   }
 
@@ -714,7 +926,17 @@ if (window.location.pathname.includes('admin.html')) {
   }
 
   function adminShowLoading(element, colspan) {
-    element.innerHTML = `<tr><td colspan="${colspan}" style="text-align: center; padding: 40px; color: #a0aec0;"><i class="fas fa-spinner fa-spin"></i> 加载中...</td></tr>`;
+    element.innerHTML = `
+      <tr>
+        <td colspan="${colspan}" style="text-align: center; padding: 40px; color: #a0aec0;">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i>
+            <span>正在加载书签数据...</span>
+            <small style="color: #718096;">首次加载可能需要几秒钟</small>
+          </div>
+        </td>
+      </tr>
+    `;
   }
 
   function adminShowError(element, message, colspan) {
@@ -738,9 +960,14 @@ if (window.location.pathname.includes('admin.html')) {
     adminElements.bookmarkSearch.addEventListener('input', (e) => {
       clearTimeout(adminState.searchTimeout);
       adminState.searchTimeout = setTimeout(() => {
-        adminState.filters.search = e.target.value;
-        adminLoadBookmarks(1);
-      }, 500);
+        const searchValue = e.target.value.trim();
+        // 只有当搜索词长度大于2或为空时才搜索，减少无效请求
+        if (searchValue.length === 0 || searchValue.length >= 2) {
+          adminState.filters.search = searchValue;
+          adminState.currentPage = 1; // 搜索时重置到第1页
+          adminLoadBookmarks(1);
+        }
+      }, 800); // 增加延迟到800ms，减少请求频率
     });
 
     adminElements.prevPage.addEventListener('click', () => {
@@ -751,11 +978,36 @@ if (window.location.pathname.includes('admin.html')) {
       if (adminState.currentPage < adminState.totalPages) adminLoadBookmarks(adminState.currentPage + 1);
     });
 
+    // 筛选器事件
+    if (adminElements.domainFilter) {
+      adminElements.domainFilter.addEventListener('change', (e) => {
+        adminState.filters.domain = e.target.value;
+        adminState.currentPage = 1; // 筛选时重置到第1页
+        adminLoadBookmarks(1);
+      });
+    }
+
+    if (adminElements.categoryFilter) {
+      adminElements.categoryFilter.addEventListener('change', (e) => {
+        adminState.filters.category = e.target.value;
+        adminState.currentPage = 1; // 筛选时重置到第1页
+        adminLoadBookmarks(1);
+      });
+    }
+
     adminElements.addBookmarkBtn.addEventListener('click', () => alert('添加书签功能开发中'));
     adminElements.checkDbBtn.addEventListener('click', adminCheckDatabaseStatus);
+
+    // 监听浏览器前进后退
+    window.addEventListener('popstate', () => {
+      console.log('🔄 检测到浏览器前进/后退，恢复状态');
+      adminRestoreState();
+      adminRestoreUI();
+      adminLoadData();
+    });
   }
 
-  function adminSwitchTab(tabName) {
+  function adminSwitchTab(tabName, shouldLoadData = true) {
     adminElements.navTabs.forEach(tab => {
       tab.classList.remove('active');
       if (tab.getAttribute('data-tab') === tabName) tab.classList.add('active');
@@ -768,7 +1020,15 @@ if (window.location.pathname.includes('admin.html')) {
 
     adminState.currentTab = tabName;
 
-    if (tabName === 'bookmarks') adminLoadBookmarks();
+    // 保存状态
+    adminSaveState();
+
+    // 根据参数决定是否加载数据
+    if (shouldLoadData) {
+      if (tabName === 'bookmarks') adminLoadBookmarks(1); // 切换标签页时重置到第1页
+      else if (tabName === 'categories') adminLoadCategories();
+      else if (tabName === 'settings') adminLoadStats();
+    }
   }
 
   async function adminLoadCategories() {
