@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API测试页面 - 书签管理系统</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f7fa;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #4a6fa5;
+      text-align: center;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    .test-section h3 {
+      margin-top: 0;
+      color: #333;
+    }
+    button {
+      background: #4a6fa5;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover {
+      background: #3a5a80;
+    }
+    .result {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 4px;
+      padding: 10px;
+      margin-top: 10px;
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .status {
+      padding: 5px 10px;
+      border-radius: 3px;
+      margin: 5px 0;
+    }
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 API测试页面</h1>
+    <p>这个页面用于测试书签管理系统的API接口是否正常工作。</p>
+    
+    <div class="test-section">
+      <h3>1. 系统状态检查</h3>
+      <button onclick="testStatus()">测试 /api/status</button>
+      <div id="status-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+      <h3>2. 书签API测试</h3>
+      <button onclick="testGetBookmarks()">获取书签列表</button>
+      <button onclick="testCreateBookmark()">创建测试书签</button>
+      <div id="bookmarks-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+      <h3>3. 分类API测试</h3>
+      <button onclick="testGetCategories()">获取分类列表</button>
+      <button onclick="testCreateCategory()">创建测试分类</button>
+      <div id="categories-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+      <h3>4. 统计信息测试</h3>
+      <button onclick="testStats()">获取统计信息</button>
+      <button onclick="testDomains()">获取域名列表</button>
+      <div id="stats-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+      <h3>5. 设置API测试</h3>
+      <button onclick="testGetSettings()">获取设置</button>
+      <button onclick="testUpdateSettings()">更新设置</button>
+      <div id="settings-result" class="result"></div>
+    </div>
+    
+    <div class="status" id="overall-status">
+      点击上面的按钮开始测试API接口
+    </div>
+  </div>
+
+  <script>
+    async function apiRequest(url, options = {}) {
+      try {
+        const response = await fetch(url, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...options.headers
+          },
+          ...options
+        });
+        
+        const data = await response.json();
+        return {
+          success: response.ok,
+          status: response.status,
+          data: data
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error.message
+        };
+      }
+    }
+    
+    function displayResult(elementId, result) {
+      const element = document.getElementById(elementId);
+      element.textContent = JSON.stringify(result, null, 2);
+      
+      const status = document.getElementById('overall-status');
+      if (result.success) {
+        status.className = 'status success';
+        status.textContent = '✅ 最后一次测试成功';
+      } else {
+        status.className = 'status error';
+        status.textContent = '❌ 最后一次测试失败';
+      }
+    }
+    
+    async function testStatus() {
+      const result = await apiRequest('/api/status');
+      displayResult('status-result', result);
+    }
+    
+    async function testGetBookmarks() {
+      const result = await apiRequest('/api/bookmarks');
+      displayResult('bookmarks-result', result);
+    }
+    
+    async function testCreateBookmark() {
+      const result = await apiRequest('/api/bookmarks', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: '测试书签',
+          url: 'https://example.com',
+          category_id: null
+        })
+      });
+      displayResult('bookmarks-result', result);
+    }
+    
+    async function testGetCategories() {
+      const result = await apiRequest('/api/categories');
+      displayResult('categories-result', result);
+    }
+    
+    async function testCreateCategory() {
+      const result = await apiRequest('/api/categories', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: '测试分类',
+          parent_id: null
+        })
+      });
+      displayResult('categories-result', result);
+    }
+    
+    async function testStats() {
+      const result = await apiRequest('/api/stats');
+      displayResult('stats-result', result);
+    }
+    
+    async function testDomains() {
+      const result = await apiRequest('/api/domains');
+      displayResult('stats-result', result);
+    }
+    
+    async function testGetSettings() {
+      const result = await apiRequest('/api/settings');
+      displayResult('settings-result', result);
+    }
+    
+    async function testUpdateSettings() {
+      const result = await apiRequest('/api/settings', {
+        method: 'POST',
+        body: JSON.stringify({
+          items_per_page: '25'
+        })
+      });
+      displayResult('settings-result', result);
+    }
+  </script>
+</body>
+</html>

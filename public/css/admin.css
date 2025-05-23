@@ -1,0 +1,419 @@
+/* 管理后台特有样式 */
+
+/* 管理面板布局 */
+.admin-panel {
+  display: flex;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.admin-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+}
+
+.admin-content {
+  flex: 1;
+  background-color: var(--card-bg);
+  border-radius: var(--border-radius);
+  padding: 20px;
+  box-shadow: 0 2px 4px var(--shadow-color);
+}
+
+/* 侧边栏菜单 */
+.admin-menu {
+  margin-top: 20px;
+  background-color: var(--card-bg);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  box-shadow: 0 2px 4px var(--shadow-color);
+}
+
+.menu-item {
+  padding: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-color);
+  transition: background-color var(--transition-speed);
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-item:hover {
+  background-color: var(--bg-color);
+}
+
+.menu-item.active {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+/* 按钮样式 */
+.admin-btn {
+  padding: 8px 15px;
+  border-radius: var(--border-radius);
+  background-color: var(--card-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all var(--transition-speed);
+}
+
+.admin-btn:hover {
+  background-color: var(--bg-color);
+}
+
+.primary-btn {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+}
+
+.primary-btn:hover {
+  background-color: var(--primary-dark);
+}
+
+.danger-btn {
+  background-color: var(--danger-color);
+  color: white;
+  border: none;
+}
+
+.danger-btn:hover {
+  background-color: #c0392b;
+}
+
+#add-bookmark-btn {
+  width: 100%;
+  padding: 12px;
+}
+
+/* 内容区域头部 */
+.content-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.content-header h2 {
+  color: var(--primary-color);
+  font-size: 1.5rem;
+}
+
+/* 搜索栏 */
+.search-bar {
+  display: flex;
+  align-items: center;
+}
+
+.search-bar input {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius) 0 0 var(--border-radius);
+  background-color: var(--card-bg);
+  color: var(--text-color);
+}
+
+.search-bar button {
+  padding: 8px 12px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 0 var(--border-radius) var(--border-radius) 0;
+}
+
+/* 紧凑型筛选器 */
+.filters.compact {
+  padding: 10px;
+  margin-bottom: 15px;
+}
+
+/* 书签表格 */
+.bookmarks-table-container {
+  overflow-x: auto;
+}
+
+.bookmarks-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.bookmarks-table th,
+.bookmarks-table td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.bookmarks-table th {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-weight: 600;
+}
+
+.bookmarks-table tr:hover {
+  background-color: var(--bg-color);
+}
+
+.bookmarks-table .action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.action-btn {
+  padding: 5px 10px;
+  border-radius: var(--border-radius);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.edit-btn {
+  background-color: var(--info-color);
+  color: white;
+}
+
+.delete-btn {
+  background-color: var(--danger-color);
+  color: white;
+}
+
+.loading-cell {
+  text-align: center;
+  padding: 30px;
+  color: var(--text-light);
+  font-style: italic;
+}
+
+/* 分类管理 */
+.categories-container {
+  display: flex;
+  gap: 30px;
+}
+
+.category-list,
+.subcategory-list {
+  flex: 1;
+  background-color: var(--bg-color);
+  border-radius: var(--border-radius);
+  padding: 15px;
+}
+
+.category-list h3,
+.subcategory-list h3 {
+  margin-bottom: 15px;
+  color: var(--primary-color);
+}
+
+#selected-category {
+  font-weight: normal;
+  font-style: italic;
+  color: var(--text-light);
+}
+
+.category-list ul,
+.subcategory-list ul {
+  list-style-type: none;
+}
+
+.category-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  margin-bottom: 5px;
+  background-color: var(--card-bg);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: background-color var(--transition-speed);
+}
+
+.category-item:hover {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.category-item.active {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.category-item .category-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.category-item .category-actions button {
+  padding: 3px 8px;
+  font-size: 0.8rem;
+  border-radius: var(--border-radius);
+}
+
+.placeholder {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-light);
+  font-style: italic;
+}
+
+.loading-item {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-light);
+  font-style: italic;
+}
+
+/* 设置表单 */
+.settings-form {
+  max-width: 600px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background-color: var(--card-bg);
+  color: var(--text-color);
+}
+
+.button-group {
+  display: flex;
+  gap: 10px;
+}
+
+/* 数据库统计 */
+.db-stats {
+  background-color: var(--bg-color);
+  border-radius: var(--border-radius);
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.stat-item:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  font-weight: 500;
+}
+
+.stat-value {
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+/* 对话框 */
+.modal-dialog {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background-color: var(--card-bg);
+  border-radius: var(--border-radius);
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 5px 20px var(--shadow-color);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.modal-header {
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  color: var(--primary-color);
+}
+
+.close-btn {
+  background: none;
+  color: var(--text-light);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.close-btn:hover {
+  color: var(--danger-color);
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-footer {
+  padding: 15px 20px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* 表单样式 */
+.required {
+  color: var(--danger-color);
+}
+
+/* 管理后台分页 */
+.admin-pagination {
+  margin-top: 20px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .admin-panel {
+    flex-direction: column;
+  }
+  
+  .admin-sidebar {
+    width: 100%;
+  }
+  
+  .categories-container {
+    flex-direction: column;
+  }
+  
+  .button-group {
+    flex-wrap: wrap;
+  }
+} 
