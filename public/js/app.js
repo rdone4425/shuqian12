@@ -15,8 +15,32 @@ const state = {
     category: '',
     subcategory: '',
     search: ''
-  }
+  },
+  searchTimeout: null,
+  filterTimeout: null,
+  isLoading: false
 };
+
+// 防抖函数（带取消功能）
+function debounce(func, wait) {
+  let timeout;
+
+  const executedFunction = function(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+
+  // 添加取消功能
+  executedFunction.cancel = function() {
+    clearTimeout(timeout);
+  };
+
+  return executedFunction;
+}
 
 // DOM 元素
 const elements = {
@@ -190,11 +214,22 @@ async function loadDomains() {
 
 // 加载书签
 async function loadBookmarks(page = 1) {
+  // 防止重复请求
+  if (state.isLoading) {
+    console.log('正在加载中，跳过重复请求');
+    return;
+  }
+
   try {
+    state.isLoading = true;
+    console.log(`🚀 开始加载书签 - 第${page}页`);
+    const startTime = Date.now();
+
     elements.bookmarksList.innerHTML = `
       <div class="loading-state">
         <i class="fas fa-spinner fa-spin"></i>
-        <p>加载中...</p>
+        <p>正在加载书签...</p>
+        <small style="color: #6b7280; margin-top: 8px;">首次加载可能需要几秒钟</small>
       </div>
     `;
 
@@ -210,6 +245,8 @@ async function loadBookmarks(page = 1) {
     const response = await fetch(`/api/bookmarks?${params}`);
     const data = await response.json();
 
+    const loadTime = Date.now() - startTime;
+    console.log(`✅ 书签加载完成 - 耗时: ${loadTime}ms`);
     console.log('书签API响应:', data); // 调试信息
 
     if (data.success) {
@@ -272,6 +309,8 @@ async function loadBookmarks(page = 1) {
 
     // 更新分页信息
     updatePagination();
+  } finally {
+    state.isLoading = false;
   }
 }
 
@@ -404,15 +443,57 @@ function updateStats() {
     });
 }
 
+// 创建防抖的搜索函数
+const debouncedSearch = debounce(() => {
+  state.filters.domain = elements.domainFilter.value;
+  state.filters.category = elements.categoryFilter.value;
+  state.filters.subcategory = elements.subcategoryFilter.value;
+  state.filters.search = elements.searchInput.value;
+  loadBookmarks(1);
+}, 600); // 600ms防抖延迟
+
+// 创建防抖的筛选函数
+const debouncedFilter = debounce(() => {
+  state.filters.domain = elements.domainFilter.value;
+  state.filters.category = elements.categoryFilter.value;
+  state.filters.subcategory = elements.subcategoryFilter.value;
+  state.filters.search = elements.searchInput.value;
+  loadBookmarks(1);
+}, 300); // 300ms防抖延迟
+
 // 设置事件监听器
 function setupEventListeners() {
   // 分类筛选器变更时加载子分类
   elements.categoryFilter.addEventListener('change', () => {
     loadSubcategories(elements.categoryFilter.value);
+    // 延迟执行筛选，等待子分类加载完成
+    setTimeout(() => {
+      debouncedFilter();
+    }, 100);
   });
 
-  // 应用筛选器
+  // 子分类筛选器变更
+  elements.subcategoryFilter.addEventListener('change', debouncedFilter);
+
+  // 域名筛选器变更
+  elements.domainFilter.addEventListener('change', debouncedFilter);
+
+  // 搜索输入框 - 实时搜索
+  elements.searchInput.addEventListener('input', (e) => {
+    const searchValue = e.target.value.trim();
+    // 只有当搜索词长度大于等于2或为空时才搜索
+    if (searchValue.length === 0 || searchValue.length >= 2) {
+      debouncedSearch();
+    }
+  });
+
+  // 应用筛选器按钮（立即执行，不防抖）
   elements.applyFilters.addEventListener('click', () => {
+    console.log('🚀 立即应用筛选器');
+    // 取消防抖，立即执行
+    debouncedSearch.cancel();
+    debouncedFilter.cancel();
+
     state.filters.domain = elements.domainFilter.value;
     state.filters.category = elements.categoryFilter.value;
     state.filters.subcategory = elements.subcategoryFilter.value;
@@ -420,9 +501,12 @@ function setupEventListeners() {
     loadBookmarks(1);
   });
 
-  // 回车键应用筛选
+  // 回车键应用筛选（立即执行）
   elements.searchInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
+      console.log('🚀 回车键触发立即搜索');
+      // 取消防抖，立即执行
+      debouncedSearch.cancel();
       elements.applyFilters.click();
     }
   });
