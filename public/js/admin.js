@@ -402,12 +402,12 @@ function setupAdminEventListeners() {
   });
 
   adminElements.bookmarkSearch.addEventListener('input', (e) => {
-    // 实时搜索，延迟500ms
+    // 优化搜索，延迟800ms减少请求
     clearTimeout(adminState.searchTimeout);
     adminState.searchTimeout = setTimeout(() => {
       adminState.filters.search = e.target.value;
       loadBookmarks(1);
-    }, 500);
+    }, 800);
   });
 
   // 筛选器

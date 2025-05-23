@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>书签管理系统 - 管理后台</title>
-  <link rel="stylesheet" href="css/admin-modern.css">
+  <link rel="stylesheet" href="css/admin-compact.css">
   <!-- Font Awesome 图标 -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- 网站图标 -->
@@ -120,21 +120,17 @@
         <div class="quick-actions">
           <h2>快速操作</h2>
           <div class="action-grid">
-            <button type="button" class="action-card" data-action="add-bookmark">
+            <button type="button" class="action-card" onclick="document.getElementById('add-bookmark-btn').click()">
               <i class="fas fa-plus"></i>
               <span>添加书签</span>
             </button>
-            <button type="button" class="action-card" data-action="add-category">
+            <button type="button" class="action-card" onclick="switchTab('categories')">
               <i class="fas fa-folder-plus"></i>
-              <span>添加分类</span>
+              <span>分类管理</span>
             </button>
-            <button type="button" class="action-card" data-action="export-data">
-              <i class="fas fa-download"></i>
-              <span>导出数据</span>
-            </button>
-            <button type="button" class="action-card" data-action="backup-db">
-              <i class="fas fa-shield-alt"></i>
-              <span>备份数据</span>
+            <button type="button" class="action-card" onclick="switchTab('settings')">
+              <i class="fas fa-cog"></i>
+              <span>系统设置</span>
             </button>
           </div>
         </div>
