@@ -1274,11 +1274,153 @@ async function initializeDatabase() {
   }
 }
 
+// 分类管理功能
+function openCategoryDialog(category = null) {
+  adminState.editingCategory = category;
+
+  if (category) {
+    // 编辑模式
+    adminElements.categoryDialogTitle.textContent = '编辑分类';
+    adminElements.categoryId.value = category.id;
+    adminElements.categoryName.value = category.name;
+    adminElements.parentCategory.value = category.parent_id || '';
+  } else {
+    // 添加模式
+    adminElements.categoryDialogTitle.textContent = '添加分类';
+    adminElements.categoryForm.reset();
+    adminElements.categoryId.value = '';
+  }
+
+  // 更新父分类选择器
+  updateParentCategoryOptions();
+  adminElements.categoryDialog.style.display = 'flex';
+}
+
+function closeCategoryDialog() {
+  adminElements.categoryDialog.style.display = 'none';
+  adminState.editingCategory = null;
+}
+
+async function saveCategory() {
+  const formData = {
+    name: adminElements.categoryName.value.trim(),
+    parent_id: adminElements.parentCategory.value || null
+  };
+
+  // 验证必填字段
+  if (!formData.name) {
+    alert('请填写分类名称');
+    return;
+  }
+
+  try {
+    const isEdit = adminState.editingCategory !== null;
+    const url = isEdit ? `/api/categories/${adminElements.categoryId.value}` : '/api/categories';
+    const method = isEdit ? 'PUT' : 'POST';
+
+    const response = await fetch(url, {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(formData)
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      closeCategoryDialog();
+      loadCategories();
+      updateStats();
+      alert(isEdit ? '分类更新成功' : '分类添加成功');
+    } else {
+      alert('操作失败: ' + (data.message || '未知错误'));
+    }
+  } catch (error) {
+    console.error('保存分类失败:', error);
+    alert('保存失败，请重试');
+  }
+}
+
+function editCategory(id) {
+  const category = adminState.categories.find(c => c.id === id);
+  if (category) {
+    openCategoryDialog(category);
+  }
+}
+
+function deleteCategory(id) {
+  const category = adminState.categories.find(c => c.id === id);
+  if (!category) return;
+
+  showConfirmDialog(
+    `确定要删除分类"${category.name}"吗？`,
+    async () => {
+      try {
+        const response = await fetch(`/api/categories/${id}`, {
+          method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          loadCategories();
+          updateStats();
+          alert('分类删除成功');
+        } else {
+          alert('删除失败: ' + (data.message || '未知错误'));
+        }
+      } catch (error) {
+        console.error('删除分类失败:', error);
+        alert('删除失败，请重试');
+      }
+    }
+  );
+}
+
+function updateParentCategoryOptions() {
+  adminElements.parentCategory.innerHTML = '<option value="">无（创建主分类）</option>';
+
+  const mainCategories = adminState.categories.filter(category => !category.parent_id);
+  mainCategories.forEach(category => {
+    // 如果是编辑模式，不能选择自己作为父分类
+    if (adminState.editingCategory && adminState.editingCategory.id === category.id) {
+      return;
+    }
+
+    const option = document.createElement('option');
+    option.value = category.id;
+    option.textContent = category.name;
+    adminElements.parentCategory.appendChild(option);
+  });
+}
+
+// 确认对话框
+function showConfirmDialog(message, onConfirm) {
+  adminElements.confirmMessage.textContent = message;
+  adminElements.confirmDialog.style.display = 'flex';
+
+  // 移除之前的事件监听器
+  adminElements.confirmOk.onclick = null;
+
+  // 添加新的事件监听器
+  adminElements.confirmOk.onclick = () => {
+    closeConfirmDialog();
+    onConfirm();
+  };
+}
+
+function closeConfirmDialog() {
+  adminElements.confirmDialog.style.display = 'none';
+  adminElements.confirmOk.onclick = null;
+}
+
 // 全局函数，供HTML onclick使用
 window.editBookmark = editBookmark;
 window.deleteBookmark = deleteBookmark;
 window.editCategory = editCategory;
 window.deleteCategory = deleteCategory;
+window.switchTab = switchTab;
 
 // 初始化应用
 document.addEventListener('DOMContentLoaded', initAdmin);
