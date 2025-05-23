@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>书签管理后台</title>
+  <!-- Vue.js 3 -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <!-- Font Awesome 图标 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- 网站图标 -->
+  <link rel="icon" href="img/favicon.ico" type="image/x-icon">
+  <style>
+    /* 基础样式 */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #2d3748;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* 容器 */
+    .app-container { min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* 顶部导航 */
+    .top-nav {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .nav-brand { display: flex; align-items: center; gap: 12px; font-size: 1.25rem; font-weight: 700; color: #2d3748; }
+    .nav-actions { display: flex; gap: 12px; }
+    .nav-btn {
+      padding: 8px 16px;
+      border: none;
+      background: rgba(255, 255, 255, 0.8);
+      color: #4a5568;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .nav-btn:hover { background: rgba(255, 255, 255, 1); transform: translateY(-1px); }
+
+    /* 主要内容 */
+    .main-content { flex: 1; padding: 24px; max-width: 1200px; margin: 0 auto; width: 100%; }
+
+    /* 管理后台样式 */
+    .admin-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 8px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .tab-btn {
+      padding: 12px 20px;
+      border: none;
+      background: transparent;
+      color: #718096;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tab-btn:hover { background: rgba(102, 126, 234, 0.1); color: #667eea; }
+    .tab-btn.active { background: #667eea; color: white; }
+
+    .tab-panel { background: rgba(255, 255, 255, 0.95); border-radius: 12px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .panel-header h2 { font-size: 1.5rem; font-weight: 700; color: #2d3748; }
+
+    .btn {
+      padding: 8px 16px;
+      border: 2px solid #e2e8f0;
+      background: white;
+      color: #4a5568;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn:hover { border-color: #cbd5e0; background: #f7fafc; }
+    .btn-primary { background: #667eea; color: white; border-color: #667eea; }
+    .btn-primary:hover { background: #5a67d8; border-color: #5a67d8; }
+    .btn-success { background: #48bb78; color: white; border-color: #48bb78; }
+    .btn-info { background: #4299e1; color: white; border-color: #4299e1; }
+    .btn-warning { background: #ed8936; color: white; border-color: #ed8936; }
+    .btn-sm { padding: 4px 8px; font-size: 0.75rem; }
+    .btn-edit { background: #3182ce; color: white; border-color: #3182ce; }
+    .btn-delete { background: #e53e3e; color: white; border-color: #e53e3e; }
+
+    .admin-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .admin-toolbar .search-box { min-width: 300px; position: relative; }
+    .admin-toolbar .search-box i { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #a0aec0; }
+    .search-input {
+      width: 100%;
+      padding: 12px 16px 12px 48px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: all 0.2s;
+    }
+    .search-input:focus { border-color: #667eea; outline: none; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+    .admin-toolbar .filters { display: flex; gap: 12px; }
+    .filter-select {
+      padding: 8px 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      background: white;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+    .filter-select:focus { border-color: #667eea; outline: none; }
+
+    .table-container { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .admin-table { width: 100%; border-collapse: collapse; }
+    .admin-table th {
+      background: #f7fafc;
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #4a5568;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .admin-table td { padding: 12px 16px; border-bottom: 1px solid #f7fafc; font-size: 0.875rem; }
+    .admin-table tbody tr:hover { background: #f7fafc; }
+    .admin-table tbody tr:last-child td { border-bottom: none; }
+    .loading-cell, .empty-cell { text-align: center; padding: 40px; color: #a0aec0; }
+    .bookmark-title-cell { display: flex; align-items: center; gap: 8px; }
+    .table-icon { width: 20px; height: 20px; border-radius: 4px; }
+    .actions { display: flex; gap: 8px; }
+
+    .database-cards, .settings-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+    .db-card, .settings-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .db-card h3, .settings-card h3 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #2d3748;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .db-card p { color: #718096; margin-bottom: 16px; }
+
+    .db-status {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .status-info { display: flex; flex-direction: column; gap: 8px; }
+    .status-item { display: flex; justify-content: space-between; align-items: center; }
+    .status-item .label { font-weight: 500; color: #4a5568; }
+    .status-item .status { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
+    .status.success { background: #f0fff4; color: #22543d; }
+    .status.warning { background: #fffbeb; color: #92400e; }
+    .status.error { background: #fef2f2; color: #991b1b; }
+
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; margin-bottom: 6px; font-weight: 500; color: #4a5568; font-size: 0.875rem; }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: #667eea; outline: none; }
+
+    .stats-list { display: flex; flex-direction: column; gap: 8px; }
+    .stat-item { display: flex; justify-content: space-between; align-items: center; }
+    .stat-item .label { color: #718096; }
+    .stat-item .value { font-weight: 600; color: #2d3748; }
+
+    /* 日志样式 */
+    .log-actions { display: flex; gap: 12px; }
+    .log-filters {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 24px;
+      padding: 16px;
+      background: #f7fafc;
+      border-radius: 8px;
+      flex-wrap: wrap;
+    }
+    .filter-group { display: flex; flex-direction: column; gap: 6px; }
+    .filter-group label { font-size: 0.875rem; font-weight: 500; color: #4a5568; }
+
+    .log-container { background: white; border-radius: 8px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .log-list { display: flex; flex-direction: column; gap: 12px; }
+    .log-item {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+      transition: all 0.2s;
+    }
+    .log-item:hover { border-color: #cbd5e0; background: #f7fafc; }
+
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .log-time { font-size: 0.875rem; color: #718096; }
+    .log-level {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .level-info { background: #e6fffa; color: #234e52; }
+    .level-success { background: #f0fff4; color: #22543d; }
+    .level-warning { background: #fffbeb; color: #92400e; }
+    .level-error { background: #fef2f2; color: #991b1b; }
+    .level-debug { background: #f7fafc; color: #4a5568; }
+
+    .log-type {
+      padding: 2px 8px;
+      background: #edf2f7;
+      color: #4a5568;
+      border-radius: 4px;
+      font-size: 0.75rem;
+    }
+
+    .log-content { }
+    .log-message { font-size: 0.875rem; color: #2d3748; line-height: 1.5; }
+    .log-details-content {
+      margin-top: 8px;
+      padding: 12px;
+      background: #f7fafc;
+      border-radius: 6px;
+      border-left: 4px solid #667eea;
+    }
+    .log-details-content pre {
+      margin: 0;
+      font-size: 0.75rem;
+      color: #4a5568;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* API文档样式 */
+    .api-actions { display: flex; gap: 12px; }
+    .api-info-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .api-info-card h3 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #2d3748;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .api-base-info { display: flex; flex-direction: column; gap: 12px; }
+    .info-item { display: flex; align-items: center; gap: 12px; }
+    .info-item .label { font-weight: 500; color: #4a5568; min-width: 120px; }
+    .info-item .value { color: #2d3748; }
+    .api-url {
+      background: #f7fafc;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.875rem;
+      color: #2d3748;
+      border: 1px solid #e2e8f0;
+    }
+
+    .troubleshooting-steps { display: flex; flex-direction: column; gap: 16px; }
+    .step { }
+    .step h4 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #2d3748;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .step p { color: #4a5568; margin-bottom: 8px; line-height: 1.5; }
+    .step ul { margin: 0; padding-left: 20px; }
+    .step li { margin-bottom: 4px; color: #4a5568; }
+    .step code {
+      background: #edf2f7;
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.875rem;
+    }
+
+    .api-endpoints { display: flex; flex-direction: column; gap: 24px; }
+    .api-category {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .category-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #2d3748;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .endpoints-list { display: flex; flex-direction: column; gap: 16px; }
+    .endpoint-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 16px;
+      background: #f7fafc;
+    }
+    .endpoint-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .method {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      min-width: 50px;
+      text-align: center;
+    }
+    .method-get { background: #48bb78; color: white; }
+    .method-post { background: #4299e1; color: white; }
+    .method-put { background: #ed8936; color: white; }
+    .method-delete { background: #e53e3e; color: white; }
+    .endpoint-path {
+      font-family: 'Courier New', monospace;
+      background: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid #e2e8f0;
+      flex: 1;
+    }
+    .test-btn { margin-left: auto; }
+    .endpoint-description { color: #4a5568; margin-bottom: 12px; }
+    .endpoint-params { margin-bottom: 12px; }
+    .endpoint-params h5 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #2d3748;
+    }
+    .endpoint-params ul { margin: 0; padding-left: 20px; }
+    .endpoint-params li { margin-bottom: 4px; font-size: 0.875rem; }
+    .param-type { color: #718096; font-size: 0.75rem; }
+    .param-required {
+      background: #fed7d7;
+      color: #c53030;
+      padding: 2px 4px;
+      border-radius: 2px;
+      font-size: 0.625rem;
+      font-weight: 500;
+    }
+    .endpoint-example { }
+    .endpoint-example h5 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #2d3748;
+    }
+    .endpoint-example pre {
+      background: #2d3748;
+      color: #e2e8f0;
+      padding: 12px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      overflow-x: auto;
+      margin: 0;
+    }
+
+    .api-test-result {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 24px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .api-test-result h3 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #2d3748;
+    }
+    .test-result { border-radius: 6px; overflow: hidden; }
+    .test-result.success { border: 2px solid #48bb78; }
+    .test-result.error { border: 2px solid #e53e3e; }
+    .result-header {
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.875rem;
+    }
+    .test-result.success .result-header { background: #f0fff4; color: #22543d; }
+    .test-result.error .result-header { background: #fef2f2; color: #991b1b; }
+    .result-body {
+      background: #2d3748;
+      color: #e2e8f0;
+      padding: 16px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.75rem;
+      margin: 0;
+      overflow-x: auto;
+    }
+
+    /* 监控面板样式 */
+    .dashboard-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .last-update {
+      color: #718096;
+      font-size: 0.875rem;
+    }
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+      margin-top: 24px;
+    }
+    .dashboard-card {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    .card-header {
+      background: #f7fafc;
+      padding: 16px 20px;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .card-header h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0;
+      color: #2d3748;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-content {
+      padding: 20px;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    .stat-item {
+      text-align: center;
+    }
+    .stat-number {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #2b6cb0;
+      margin-bottom: 4px;
+    }
+    .stat-label {
+      font-size: 0.875rem;
+      color: #718096;
+    }
+    .performance-info {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .performance-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .performance-item .label {
+      font-weight: 500;
+      color: #4a5568;
+    }
+    .performance-item .value {
+      color: #2d3748;
+      font-weight: 600;
+    }
+    .status.online {
+      color: #38a169;
+      font-weight: 600;
+    }
+    .status.offline {
+      color: #e53e3e;
+      font-weight: 600;
+    }
+    .grade-a { color: #38a169; font-weight: 600; }
+    .grade-b { color: #68d391; font-weight: 600; }
+    .grade-c { color: #f6ad55; font-weight: 600; }
+    .grade-d { color: #fc8181; font-weight: 600; }
+    .grade-f { color: #e53e3e; font-weight: 600; }
+    .grade-unknown { color: #a0aec0; font-weight: 600; }
+    .recent-logs, .sync-history {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .log-item, .sync-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid #f7fafc;
+    }
+    .log-item:last-child, .sync-item:last-child {
+      border-bottom: none;
+    }
+    .log-time, .sync-time {
+      font-size: 0.75rem;
+      color: #a0aec0;
+      min-width: 80px;
+    }
+    .log-level {
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      min-width: 50px;
+      text-align: center;
+    }
+    .log-message {
+      flex: 1;
+      font-size: 0.875rem;
+      color: #4a5568;
+    }
+    .sync-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.875rem;
+    }
+    .sync-status.success {
+      color: #38a169;
+    }
+    .sync-status.error {
+      color: #e53e3e;
+    }
+    .empty-state {
+      text-align: center;
+      color: #a0aec0;
+      padding: 20px;
+    }
+    .empty-state i {
+      font-size: 2rem;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .loading-placeholder {
+      text-align: center;
+      color: #a0aec0;
+      padding: 20px;
+    }
+
+    /* 分页 */
+    .pagination { display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 24px; }
+    .page-btn {
+      padding: 8px 16px;
+      border: 2px solid rgba(255, 255, 255, 0.8);
+      background: rgba(255, 255, 255, 0.9);
+      color: #4a5568;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .page-btn:hover:not(:disabled) { background: white; transform: translateY(-1px); }
+    .page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .page-info { color: rgba(255, 255, 255, 0.9); font-size: 0.875rem; font-weight: 500; }
+
+    /* 响应式 */
+    @media (max-width: 768px) {
+      .top-nav { padding: 0 16px; }
+      .main-content { padding: 16px; }
+      .database-cards, .settings-cards { grid-template-columns: 1fr; }
+      .admin-toolbar { flex-direction: column; align-items: stretch; }
+      .admin-toolbar .search-box { min-width: auto; }
+      .admin-tabs { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <admin-manager></admin-manager>
+  </div>
+
+  <!-- 引入组件文件 -->
+  <script src="js/admin-components.js"></script>
+
+  <script>
+    const { createApp, ref, reactive, computed, onMounted, watch } = Vue;
+
+    // 主应用组件
+    const AdminManager = {
+      template: `
+        <div class="app-container">
+          <!-- 顶部导航 -->
+          <nav class="top-nav">
+            <div class="nav-brand">
+              <i class="fas fa-cog"></i>
+              <span>书签管理后台</span>
+            </div>
+            <div class="nav-actions">
+              <span v-if="currentUser" class="nav-btn" style="background: rgba(102, 126, 234, 0.1); color: #667eea;">
+                <i class="fas fa-user"></i>
+                {{ currentUser.username }}
+              </span>
+              <button v-if="currentUser" @click="logout" class="nav-btn" style="background: rgba(229, 62, 62, 0.1); color: #e53e3e;">
+                <i class="fas fa-sign-out-alt"></i>
+                登出
+              </button>
+              <a href="index.html" class="nav-btn" title="返回前台">
+                <i class="fas fa-home"></i>
+                返回前台
+              </a>
+              <button
+                class="nav-btn"
+                @click="toggleTheme"
+                title="切换主题"
+              >
+                <i :class="isDark ? 'fas fa-sun' : 'fas fa-moon'"></i>
+              </button>
+            </div>
+          </nav>
+
+          <!-- 主要内容 -->
+          <main class="main-content">
+            <div v-if="isLoading" style="text-align: center; padding: 40px;">
+              <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: #667eea;"></i>
+              <p style="margin-top: 16px; color: #718096;">正在验证身份...</p>
+            </div>
+            <admin-view v-else></admin-view>
+          </main>
+        </div>
+      `,
+      setup() {
+        const isDark = ref(false);
+        const currentUser = ref(null);
+        const isLoading = ref(true);
+
+        const toggleTheme = () => {
+          isDark.value = !isDark.value;
+          document.body.classList.toggle('dark-theme', isDark.value);
+        };
+
+        // 检查数据库初始化状态
+        const checkDatabaseInit = async () => {
+          try {
+            // 先检查数据库是否已初始化
+            const response = await fetch('/api/system/stats');
+
+            if (response.status === 500) {
+              // 数据库可能未初始化，显示初始化界面
+              return false;
+            }
+
+            return true;
+          } catch (error) {
+            console.error('数据库检查失败:', error);
+            return false;
+          }
+        };
+
+        // 检查认证状态
+        const checkAuth = async () => {
+          try {
+            // 首先检查数据库是否已初始化
+            const dbInitialized = await checkDatabaseInit();
+
+            if (!dbInitialized) {
+              // 数据库未初始化，跳转到设置页面
+              window.location.href = '/setup.html';
+              return;
+            }
+
+            // 检查当前路径是否正确
+            // 如果用户通过受保护的路径访问，中间件已经处理了重定向
+            // 这里不需要额外的路径检查
+
+            const response = await fetch('/api/auth/users');
+            const data = await response.json();
+
+            if (response.status === 401) {
+              // 需要登录
+              window.location.href = '/login.html';
+              return;
+            }
+
+            if (data.success && data.users) {
+              // 已登录，获取当前用户信息
+              currentUser.value = { username: 'admin' }; // 简化处理
+            }
+          } catch (error) {
+            console.error('认证检查失败:', error);
+            // 如果是网络错误，可能是数据库未初始化，跳转到设置页面
+            window.location.href = '/setup.html';
+          } finally {
+            isLoading.value = false;
+          }
+        };
+
+        // 登出
+        const logout = async () => {
+          try {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            window.location.href = '/login.html';
+          } catch (error) {
+            console.error('登出失败:', error);
+            window.location.href = '/login.html';
+          }
+        };
+
+        // 页面加载时检查认证
+        onMounted(() => {
+          checkAuth();
+        });
+
+        return {
+          isDark,
+          currentUser,
+          isLoading,
+          toggleTheme,
+          logout
+        };
+      }
+    };
+
+    // 创建应用
+    const app = createApp({
+      components: {
+        AdminManager
+      }
+    });
+
+    // 注册全局组件
+    app.component('adminView', AdminView);
+
+    // 挂载应用
+    app.mount('#app');
+  </script>
+</body>
+</html>
