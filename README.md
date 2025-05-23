@@ -113,6 +113,7 @@ https://your-pages-project.pages.dev/api/bookmarks
    - **"API响应错误: 500"** → 检查上述步骤
    - **"Cannot read properties of undefined"** → 已修复，系统会自动处理
    - **"加载书签/设置/分类失败"** → 检查数据库状态，执行初始化
+   - **"管理后台初始化失败: 数据库连接失败"** → 已修复，现在会正确识别数据库状态
 
 ## 🔌 Chrome插件集成
 

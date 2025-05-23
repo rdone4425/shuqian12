@@ -150,18 +150,24 @@ async function checkDatabaseStatus() {
     const response = await fetch('/api/status');
     const data = await response.json();
 
-    if (data.status === 'connected' || data.status === 'online') {
+    if (data.status === 'ready' || data.status === 'connected' || data.status === 'online') {
       adminElements.dbStatus.textContent = '已连接';
       adminElements.dbStatus.style.color = 'var(--success-color)';
+    } else if (data.status === 'needs_setup') {
+      adminElements.dbStatus.textContent = '需要初始化';
+      adminElements.dbStatus.style.color = 'var(--warning-color)';
+      // 不抛出错误，允许继续初始化
     } else {
       adminElements.dbStatus.textContent = '连接失败';
       adminElements.dbStatus.style.color = 'var(--danger-color)';
-      throw new Error('数据库连接失败');
+      console.warn('数据库状态:', data);
+      // 不抛出错误，允许继续尝试
     }
   } catch (error) {
     adminElements.dbStatus.textContent = '连接失败';
     adminElements.dbStatus.style.color = 'var(--danger-color)';
-    throw new Error('数据库连接失败');
+    console.error('检查数据库状态失败:', error);
+    // 不抛出错误，允许继续尝试
   }
 }
 

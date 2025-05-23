@@ -74,23 +74,23 @@ async function checkDatabaseStatus() {
     const response = await fetch('/api/status');
     const data = await response.json();
 
-    if (data.status === 'ready' || data.status === 'connected') {
+    if (data.status === 'ready' || data.status === 'connected' || data.status === 'online') {
       elements.dbStatus.textContent = '已连接';
-      elements.dbStatus.style.color = 'var(--success-color)';
+      elements.dbStatus.style.color = '#10b981';
     } else if (data.status === 'needs_setup') {
       elements.dbStatus.textContent = '需要初始化';
-      elements.dbStatus.style.color = 'var(--warning-color)';
+      elements.dbStatus.style.color = '#f59e0b';
       console.warn('数据库需要初始化，请访问管理后台进行初始化');
       // 不抛出错误，允许继续加载其他组件
     } else {
       elements.dbStatus.textContent = '连接失败';
-      elements.dbStatus.style.color = 'var(--danger-color)';
+      elements.dbStatus.style.color = '#ef4444';
       console.error('数据库状态:', data);
       // 不抛出错误，允许继续尝试加载
     }
   } catch (error) {
     elements.dbStatus.textContent = '连接失败';
-    elements.dbStatus.style.color = 'var(--danger-color)';
+    elements.dbStatus.style.color = '#ef4444';
     console.error('检查数据库状态失败:', error);
     // 不抛出错误，允许继续尝试加载
   }
