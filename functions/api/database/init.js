@@ -199,7 +199,7 @@ export async function onRequest(context) {
       }
     }
 
-    // 9. 插入默认设置
+    // 9. 插入默认设置（只插入不存在的设置，保护用户自定义设置）
     try {
       const defaultSettings = [
         { key: 'items_per_page', value: '20', description: '每页显示数量' },
@@ -215,17 +215,32 @@ export async function onRequest(context) {
         { key: 'lockout_duration', value: '1800', description: '账户锁定时间（秒）' }
       ];
 
+      let insertedCount = 0;
+      let skippedCount = 0;
+
       for (const setting of defaultSettings) {
         try {
-          await db.prepare(`
-            INSERT OR IGNORE INTO settings (key, value, description)
-            VALUES (?, ?, ?)
-          `).bind(setting.key, setting.value, setting.description).run();
+          // 检查设置是否已存在
+          const existing = await db.prepare(`
+            SELECT key FROM settings WHERE key = ?
+          `).bind(setting.key).first();
+
+          if (!existing) {
+            // 只有不存在时才插入
+            await db.prepare(`
+              INSERT INTO settings (key, value, description)
+              VALUES (?, ?, ?)
+            `).bind(setting.key, setting.value, setting.description).run();
+            insertedCount++;
+          } else {
+            skippedCount++;
+          }
         } catch (error) {
-          // 忽略重复插入错误
+          console.error(`插入设置 ${setting.key} 失败:`, error);
         }
       }
-      results.push('✅ 默认设置插入成功');
+
+      results.push(`✅ 默认设置处理完成 (新增: ${insertedCount}, 跳过: ${skippedCount})`);
     } catch (error) {
       results.push('❌ 默认设置插入失败: ' + error.message);
     }

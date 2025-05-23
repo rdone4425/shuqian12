@@ -835,6 +835,16 @@ const AdminView = {
                 <i class="fas fa-link"></i>
                 测试路径
               </button>
+
+              <button @click="checkPathProtection" class="btn btn-warning" :disabled="securityLoading">
+                <i class="fas fa-bug"></i>
+                检查路径保护状态
+              </button>
+
+              <button @click="checkDatabaseStatus" class="btn btn-secondary" :disabled="securityLoading">
+                <i class="fas fa-database"></i>
+                检查数据库状态
+              </button>
             </div>
 
             <!-- 显示设置 -->
@@ -1574,6 +1584,113 @@ const AdminView = {
       alert(messages.join('\n'));
     };
 
+    // 检查路径保护状态
+    const checkPathProtection = async () => {
+      try {
+        const response = await fetch('/api/debug/path-protection');
+        const data = await response.json();
+
+        if (data.success) {
+          const analysis = data.analysis;
+          const messages = [];
+
+          messages.push('=== 路径保护状态检查 ===');
+          messages.push('');
+          messages.push(`数据库状态: ${analysis.dbInitialized ? '已初始化' : '未初始化'}`);
+          messages.push('');
+
+          messages.push('当前设置:');
+          messages.push(`- 首页路径保护: ${analysis.pathProtection.homePathEnabled ? '启用' : '禁用'}`);
+          messages.push(`- 首页路径: ${analysis.pathProtection.homePathValue || '未设置'}`);
+          messages.push(`- 管理路径: ${analysis.pathProtection.adminPathValue || '未设置'}`);
+          messages.push('');
+
+          if (analysis.urls.protectedHomePage) {
+            messages.push(`受保护的首页: ${analysis.urls.protectedHomePage}`);
+            messages.push(`被阻止的首页: ${analysis.urls.blockedHomePage}`);
+          }
+
+          if (analysis.urls.protectedAdminPage) {
+            messages.push(`受保护的管理页: ${analysis.urls.protectedAdminPage}`);
+            messages.push(`被阻止的管理页: ${analysis.urls.blockedAdminPage}`);
+          }
+
+          if (data.suggestions.length > 0) {
+            messages.push('');
+            messages.push('建议:');
+            data.suggestions.forEach(suggestion => {
+              messages.push(`- ${suggestion}`);
+            });
+          }
+
+          alert(messages.join('\n'));
+        } else {
+          alert('检查失败: ' + data.message);
+        }
+      } catch (error) {
+        console.error('检查路径保护状态失败:', error);
+        alert('检查失败: ' + error.message);
+      }
+    };
+
+    // 检查数据库状态
+    const checkDatabaseStatus = async () => {
+      try {
+        const response = await fetch('/api/database/status');
+        const data = await response.json();
+
+        if (data.success) {
+          const status = data.status;
+          const messages = [];
+
+          messages.push('=== 数据库状态检查 ===');
+          messages.push('');
+          messages.push(`数据库配置: ${status.dbConfigured ? '✅ 已配置' : '❌ 未配置'}`);
+          messages.push(`表结构: ${status.tablesExist ? '✅ 完整' : '❌ 不完整'}`);
+          messages.push(`初始化状态: ${data.isInitialized ? '✅ 已初始化' : '❌ 未初始化'}`);
+          messages.push('');
+
+          messages.push('数据统计:');
+          messages.push(`- 设置项: ${status.settingsCount} 个`);
+          messages.push(`- 用户: ${status.usersCount} 个`);
+          messages.push(`- 书签: ${status.bookmarksCount} 个`);
+          messages.push(`- 分类: ${status.categoriesCount} 个`);
+          messages.push('');
+
+          messages.push('存在的表:');
+          status.tables.forEach(table => {
+            messages.push(`- ${table}`);
+          });
+
+          if (status.lastInitTime) {
+            messages.push('');
+            messages.push(`最后初始化时间: ${new Date(status.lastInitTime).toLocaleString()}`);
+          }
+
+          messages.push('');
+          messages.push('重要设置:');
+          messages.push(`- 管理路径: ${status.settings.admin_path || '未设置'}`);
+          messages.push(`- 首页路径: ${status.settings.home_path || '未设置'}`);
+          messages.push(`- 首页保护: ${status.settings.enable_home_path === 'true' ? '启用' : '禁用'}`);
+
+          if (data.recommendations.length > 0) {
+            messages.push('');
+            messages.push('建议:');
+            data.recommendations.forEach(rec => {
+              messages.push(`- ${rec}`);
+            });
+          }
+
+          alert(messages.join('\n'));
+        } else {
+          alert('检查失败: ' + data.message);
+        }
+      } catch (error) {
+        console.error('检查数据库状态失败:', error);
+        alert('检查失败: ' + error.message);
+      }
+    };
+
     // 日志管理函数
     const loadLogs = async (page = logCurrentPage.value) => {
       if (logsLoading.value) return;
@@ -2199,6 +2316,8 @@ const AdminView = {
       generateAdminPath,
       generateHomePath,
       testPaths,
+      checkPathProtection,
+      checkDatabaseStatus,
       getIconUrl,
       handleIconError,
       getCategoryName,
