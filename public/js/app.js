@@ -212,31 +212,46 @@ async function loadBookmarks(page = 1) {
 
     console.log('书签API响应:', data); // 调试信息
 
-    if (data.success && (data.bookmarks || data.data)) {
+    if (data.success) {
       // 兼容两种数据格式：data.bookmarks 或 data.data
-      state.bookmarks = data.bookmarks || data.data || [];
-      state.currentPage = page;
+      const bookmarksArray = data.bookmarks || data.data || [];
 
-      // 兼容两种分页格式：data.total 或 data.pagination.total
-      const total = data.total || (data.pagination && data.pagination.total) || 0;
-      state.totalPages = Math.ceil(total / state.itemsPerPage);
+      console.log('提取的书签数组:', bookmarksArray); // 调试信息
+      console.log('书签数组类型:', Array.isArray(bookmarksArray)); // 调试信息
 
-      console.log('加载的书签数量:', state.bookmarks.length); // 调试信息
-      console.log('总数量:', total); // 调试信息
-      console.log('总页数:', state.totalPages); // 调试信息
+      if (Array.isArray(bookmarksArray)) {
+        state.bookmarks = bookmarksArray;
+        state.currentPage = page;
 
-      // 更新分页信息
-      updatePagination();
+        // 兼容两种分页格式：data.total 或 data.pagination.total
+        const total = data.total || (data.pagination && data.pagination.total) || 0;
+        state.totalPages = Math.ceil(total / state.itemsPerPage);
 
-      // 渲染书签列表
-      renderBookmarks();
+        console.log('加载的书签数量:', state.bookmarks.length); // 调试信息
+        console.log('总数量:', total); // 调试信息
+        console.log('总页数:', state.totalPages); // 调试信息
+
+        // 更新分页信息
+        updatePagination();
+
+        // 渲染书签列表
+        renderBookmarks();
+      } else {
+        console.error('书签数据不是数组:', bookmarksArray);
+        // 确保bookmarks是空数组
+        state.bookmarks = [];
+        state.currentPage = 1;
+        state.totalPages = 0;
+        showError('书签数据格式错误');
+        updatePagination();
+      }
     } else {
       // 确保bookmarks是空数组，避免undefined错误
       state.bookmarks = [];
       state.currentPage = 1;
       state.totalPages = 0;
 
-      console.warn('书签加载失败:', data); // 调试信息
+      console.error('API返回失败状态:', data); // 调试信息
 
       // 显示错误信息
       const errorMessage = data.message || data.error || '加载书签失败';
