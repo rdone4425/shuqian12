@@ -33,10 +33,7 @@ const elements = {
   domainCount: document.getElementById('domain-count'),
   categoryCount: document.getElementById('category-count'),
   dbStatus: document.getElementById('db-status'),
-  themeToggle: document.getElementById('theme-toggle'),
-  helpDialog: document.getElementById('help-dialog'),
-  showHelp: document.getElementById('show-help'),
-  closeHelp: document.getElementById('close-help')
+  themeToggle: document.getElementById('theme-toggle')
 };
 
 // 初始化
@@ -105,11 +102,21 @@ async function loadSettings() {
     const response = await fetch('/api/settings');
     const data = await response.json();
 
-    if (data.success) {
-      state.itemsPerPage = parseInt(data.settings.items_per_page) || 20;
+    if (data.success && data.settings) {
+      // 处理新的设置格式（对象包含value属性）
+      if (data.settings.items_per_page) {
+        const itemsPerPage = data.settings.items_per_page.value || data.settings.items_per_page;
+        state.itemsPerPage = parseInt(itemsPerPage) || 20;
+      } else {
+        state.itemsPerPage = 20; // 默认值
+      }
+    } else {
+      console.warn('加载设置失败，使用默认值:', data.message);
+      state.itemsPerPage = 20; // 默认值
     }
   } catch (error) {
     console.error('加载设置失败:', error);
+    state.itemsPerPage = 20; // 默认值
   }
 }
 
@@ -123,7 +130,7 @@ async function loadCategories() {
       state.categories = data.categories;
 
       // 清空分类选择器
-      elements.categoryFilter.innerHTML = '<option value="">全部</option>';
+      elements.categoryFilter.innerHTML = '<option value="">所有分类</option>';
 
       // 添加主分类
       const mainCategories = state.categories.filter(category => !category.parent_id);
@@ -166,7 +173,7 @@ async function loadDomains() {
       state.domains = data.domains;
 
       // 清空域名选择器
-      elements.domainFilter.innerHTML = '<option value="">全部</option>';
+      elements.domainFilter.innerHTML = '<option value="">所有网站</option>';
 
       // 添加域名
       state.domains.forEach(domain => {
@@ -184,7 +191,12 @@ async function loadDomains() {
 // 加载书签
 async function loadBookmarks(page = 1) {
   try {
-    elements.bookmarksList.innerHTML = '<div class="loading">加载中...</div>';
+    elements.bookmarksList.innerHTML = `
+      <div class="loading-state">
+        <i class="fas fa-spinner fa-spin"></i>
+        <p>加载中...</p>
+      </div>
+    `;
 
     const params = new URLSearchParams({
       page: page,
@@ -248,7 +260,12 @@ function renderBookmarks() {
   }
 
   if (state.bookmarks.length === 0) {
-    elements.bookmarksList.innerHTML = '<div class="loading">没有找到书签</div>';
+    elements.bookmarksList.innerHTML = `
+      <div class="loading-state">
+        <i class="fas fa-search"></i>
+        <p>没有找到书签</p>
+      </div>
+    `;
     return;
   }
 
@@ -268,7 +285,7 @@ function renderBookmarks() {
     url.textContent = bookmark.url;
 
     const domain = bookmarkElement.querySelector('.bookmark-domain');
-    domain.innerHTML = `<i class="fas fa-globe"></i> ${bookmark.domain}`;
+    domain.textContent = bookmark.domain;
 
     // 查找分类名称
     let categoryName = '未分类';
@@ -278,14 +295,21 @@ function renderBookmarks() {
     }
 
     const category = bookmarkElement.querySelector('.bookmark-category');
-    category.innerHTML = `<i class="fas fa-folder"></i> ${categoryName}`;
+    category.textContent = categoryName;
 
-    const date = bookmarkElement.querySelector('.bookmark-date');
-    date.innerHTML = `<i class="fas fa-calendar"></i> ${formatDate(bookmark.created_at)}`;
+    const dateText = bookmarkElement.querySelector('.date-text');
+    dateText.textContent = formatDate(bookmark.created_at);
 
-    const icon = bookmarkElement.querySelector('.bookmark-icon img');
-    icon.src = bookmark.icon_url || `https://www.google.com/s2/favicons?domain=${bookmark.domain}`;
-    icon.alt = `${bookmark.domain} 图标`;
+    const icon = bookmarkElement.querySelector('.bookmark-favicon img');
+    if (bookmark.icon_url) {
+      icon.src = bookmark.icon_url;
+      icon.onerror = () => {
+        icon.src = `https://www.google.com/s2/favicons?domain=${bookmark.domain}&sz=32`;
+      };
+    } else {
+      icon.src = `https://www.google.com/s2/favicons?domain=${bookmark.domain}&sz=32`;
+    }
+    icon.alt = `${bookmark.title} 图标`;
 
     // 添加到书签列表
     elements.bookmarksList.appendChild(bookmarkElement);
@@ -294,7 +318,11 @@ function renderBookmarks() {
 
 // 更新分页信息
 function updatePagination() {
-  elements.pageInfo.textContent = `第 ${state.currentPage} 页，共 ${state.totalPages} 页`;
+  if (state.totalPages > 0) {
+    elements.pageInfo.textContent = `第 ${state.currentPage} 页，共 ${state.totalPages} 页`;
+  } else {
+    elements.pageInfo.textContent = '暂无数据';
+  }
 
   // 更新上一页按钮状态
   if (state.currentPage <= 1) {
@@ -365,22 +393,6 @@ function setupEventListeners() {
 
   // 主题切换
   elements.themeToggle.addEventListener('click', toggleTheme);
-
-  // 帮助对话框
-  elements.showHelp.addEventListener('click', () => {
-    elements.helpDialog.style.display = 'flex';
-  });
-
-  elements.closeHelp.addEventListener('click', () => {
-    elements.helpDialog.style.display = 'none';
-  });
-
-  // 点击对话框外部关闭对话框
-  elements.helpDialog.addEventListener('click', (e) => {
-    if (e.target === elements.helpDialog) {
-      elements.helpDialog.style.display = 'none';
-    }
-  });
 
   // 快捷键
   document.addEventListener('keydown', (e) => {

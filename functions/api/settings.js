@@ -56,6 +56,52 @@ export async function onRequest(context) {
 // 获取设置
 async function getSettings(env) {
   try {
+    // 检查数据库连接
+    if (!env.DB) {
+      return new Response(JSON.stringify({
+        success: false,
+        message: '数据库未绑定',
+        error: '请在Cloudflare Pages项目设置中绑定D1数据库（变量名：DB）'
+      }), {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      });
+    }
+
+    // 检查表是否存在
+    try {
+      await env.DB.prepare('SELECT 1 FROM settings LIMIT 1').first();
+    } catch (error) {
+      if (error.message.includes('no such table')) {
+        // 如果表不存在，返回默认设置
+        return new Response(JSON.stringify({
+          success: true,
+          settings: {
+            items_per_page: {
+              value: '20',
+              description: '每页显示的书签数量',
+              type: 'number'
+            },
+            last_backup: {
+              value: '',
+              description: '最后备份时间',
+              type: 'datetime'
+            }
+          }
+        }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+          },
+        });
+      }
+      throw error; // 重新抛出其他错误
+    }
+
     const settings = await env.DB.prepare('SELECT key, value, description, type FROM settings ORDER BY key').all();
 
     const settingsObj = {};

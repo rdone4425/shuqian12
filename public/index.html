@@ -3,121 +3,146 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>书签管理系统</title>
-  <link rel="stylesheet" href="css/styles.css">
+  <title>我的书签导航</title>
+  <link rel="stylesheet" href="css/homepage.css">
   <!-- Font Awesome 图标 -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- 网站图标 -->
   <link rel="icon" href="img/favicon.ico" type="image/x-icon">
 </head>
-<body>
-  <div class="container">
-    <header>
-      <h1><i class="fas fa-bookmark"></i> 书签管理系统</h1>
-      <div class="header-actions">
-        <a href="admin.html" class="nav-link"><i class="fas fa-cog"></i> 管理后台</a>
-        <div class="db-status">数据库状态: <span id="db-status">检查中...</span></div>
-        <button type="button" id="show-help" class="help-button" title="显示帮助"><i class="fas fa-question-circle"></i></button>
+<body class="homepage">
+  <!-- 顶部导航栏 -->
+  <nav class="top-nav">
+    <div class="nav-container">
+      <div class="nav-brand">
+        <i class="fas fa-compass"></i>
+        <span>我的书签导航</span>
       </div>
-    </header>
-
-    <div class="filters">
-      <div class="filter-group">
-        <label for="domain-filter">域名: <span class="shortcut-hint">Alt+D</span></label>
-        <select id="domain-filter">
-          <option value="">全部</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label for="category-filter">分类: <span class="shortcut-hint">Alt+C</span></label>
-        <select id="category-filter">
-          <option value="">全部</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label for="subcategory-filter">子分类:</label>
-        <select id="subcategory-filter">
-          <option value="">全部</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label for="search-input">搜索: <span class="shortcut-hint">Alt+S</span></label>
-        <input type="text" id="search-input" placeholder="输入关键词">
-      </div>
-      <button type="button" id="apply-filters"><i class="fas fa-filter"></i> 应用筛选</button>
-    </div>
-
-    <div class="stats-container">
-      <div class="stats-card" id="total-stats">
-        <h3><i class="fas fa-chart-bar"></i> 总计</h3>
-        <p>书签数量: <span id="total-count">0</span></p>
-      </div>
-      <div class="stats-card" id="domain-stats">
-        <h3><i class="fas fa-globe"></i> 域名统计</h3>
-        <p>域名数量: <span id="domain-count">0</span></p>
-      </div>
-      <div class="stats-card" id="category-stats">
-        <h3><i class="fas fa-folder"></i> 分类统计</h3>
-        <p>分类数量: <span id="category-count">0</span></p>
+      <div class="nav-actions">
+        <button type="button" id="theme-toggle" class="nav-btn" title="切换主题">
+          <i class="fas fa-moon"></i>
+        </button>
+        <a href="admin.html" class="nav-btn" title="管理后台">
+          <i class="fas fa-cog"></i>
+        </a>
       </div>
     </div>
+  </nav>
 
-    <div class="bookmarks-container">
-      <h2><i class="fas fa-list"></i> 书签列表</h2>
-      <div class="bookmarks-list" id="bookmarks-list">
-        <!-- 书签项将在这里动态添加 -->
-        <div class="loading">加载中...</div>
-      </div>
-      <div class="pagination">
-        <button type="button" id="prev-page" disabled><i class="fas fa-chevron-left"></i> 上一页</button>
-        <span id="page-info">第 1 页</span>
-        <button type="button" id="next-page">下一页 <i class="fas fa-chevron-right"></i></button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 主题切换按钮 -->
-  <div class="theme-toggle" id="theme-toggle" title="切换主题 (Alt+T)">
-    <i class="fas fa-moon"></i>
-  </div>
-
-  <!-- 帮助对话框 -->
-  <div id="help-dialog" class="help-dialog">
-    <div class="help-content">
-      <h2><i class="fas fa-question-circle"></i> 帮助</h2>
-      <div class="help-section">
-        <h3>快捷键</h3>
-        <ul>
-          <li><kbd>Alt</kbd> + <kbd>D</kbd> - 聚焦域名筛选器</li>
-          <li><kbd>Alt</kbd> + <kbd>C</kbd> - 聚焦分类筛选器</li>
-          <li><kbd>Alt</kbd> + <kbd>S</kbd> - 聚焦搜索框</li>
-          <li><kbd>Alt</kbd> + <kbd>T</kbd> - 切换主题</li>
-          <li><kbd>Alt</kbd> + <kbd>←</kbd> - 上一页</li>
-          <li><kbd>Alt</kbd> + <kbd>→</kbd> - 下一页</li>
-        </ul>
-      </div>
-      <div class="help-section">
-        <h3>关于</h3>
-        <p>书签管理系统 v1.0</p>
-        <p>基于Cloudflare Pages和D1数据库构建</p>
-      </div>
-      <button type="button" id="close-help" class="close-help-button"><i class="fas fa-times"></i> 关闭</button>
-    </div>
-  </div>
-
-  <template id="bookmark-template">
-    <div class="bookmark-item">
-      <div class="bookmark-icon">
-        <img src="" alt="网站图标">
-      </div>
-      <div class="bookmark-content">
-        <h3 class="bookmark-title"><a href="" target="_blank"></a></h3>
-        <div class="bookmark-url"></div>
-        <div class="bookmark-meta">
-          <span class="bookmark-domain"><i class="fas fa-globe"></i> </span>
-          <span class="bookmark-category"><i class="fas fa-folder"></i> </span>
-          <span class="bookmark-date"><i class="fas fa-calendar"></i> </span>
+  <!-- 主要内容区域 -->
+  <main class="main-content">
+    <!-- 搜索区域 -->
+    <section class="search-section">
+      <div class="search-container">
+        <div class="search-box">
+          <i class="fas fa-search search-icon"></i>
+          <input type="text" id="search-input" placeholder="搜索书签..." class="search-input">
         </div>
+        <div class="quick-filters">
+          <select id="category-filter" class="filter-select" title="选择分类">
+            <option value="">所有分类</option>
+          </select>
+          <select id="domain-filter" class="filter-select" title="选择网站">
+            <option value="">所有网站</option>
+          </select>
+          <button type="button" id="apply-filters" class="filter-btn" title="应用筛选">
+            <i class="fas fa-filter"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 统计信息 -->
+    <section class="stats-section">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-bookmark"></i>
+          </div>
+          <div class="stat-info">
+            <div class="stat-number" id="total-count">0</div>
+            <div class="stat-label">书签</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-globe"></i>
+          </div>
+          <div class="stat-info">
+            <div class="stat-number" id="domain-count">0</div>
+            <div class="stat-label">网站</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-folder"></i>
+          </div>
+          <div class="stat-info">
+            <div class="stat-number" id="category-count">0</div>
+            <div class="stat-label">分类</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 书签展示区域 -->
+    <section class="bookmarks-section">
+      <div class="bookmarks-grid" id="bookmarks-list">
+        <!-- 书签卡片将在这里动态添加 -->
+        <div class="loading-state">
+          <i class="fas fa-spinner fa-spin"></i>
+          <p>加载中...</p>
+        </div>
+      </div>
+
+      <!-- 分页控制 -->
+      <div class="pagination-controls">
+        <button type="button" id="prev-page" class="page-btn" disabled>
+          <i class="fas fa-chevron-left"></i>
+          上一页
+        </button>
+        <span id="page-info" class="page-info">第 1 页</span>
+        <button type="button" id="next-page" class="page-btn">
+          下一页
+          <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- 隐藏的子分类选择器 -->
+  <select id="subcategory-filter" class="hidden">
+    <option value="">全部</option>
+  </select>
+
+  <!-- 数据库状态指示器 -->
+  <div class="db-status-indicator">
+    <span id="db-status">检查中...</span>
+  </div>
+
+  <!-- 新的书签卡片模板 -->
+  <template id="bookmark-template">
+    <div class="bookmark-card">
+      <div class="bookmark-header">
+        <div class="bookmark-favicon">
+          <img src="" alt="网站图标" loading="lazy">
+        </div>
+        <div class="bookmark-domain-info">
+          <span class="bookmark-domain"></span>
+          <span class="bookmark-category"></span>
+        </div>
+      </div>
+      <div class="bookmark-body">
+        <h3 class="bookmark-title">
+          <a href="" target="_blank" rel="noopener noreferrer"></a>
+        </h3>
+        <p class="bookmark-url"></p>
+      </div>
+      <div class="bookmark-footer">
+        <span class="bookmark-date">
+          <i class="fas fa-calendar-alt"></i>
+          <span class="date-text"></span>
+        </span>
       </div>
     </div>
   </template>
