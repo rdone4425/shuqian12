@@ -237,18 +237,24 @@ bookmark-manager/
 │   │   └── favicon.ico       # 网站图标
 │   └── _routes.json          # Cloudflare Pages路由配置
 ├── functions/api/            # API端点（Cloudflare Functions）
-│   ├── bookmarks.js          # 书签API（兼容Chrome插件）
-│   ├── categories.js         # 分类API
-│   ├── domains.js            # 域名统计API
-│   ├── stats.js              # 统计信息API
-│   ├── init-database.js      # 数据库初始化API
-│   ├── check-database.js     # 数据库检查API
-│   ├── export.js             # 数据导出API
-│   ├── import.js             # 数据导入API
-│   ├── settings.js           # 设置管理API
+│   ├── bookmarks/            # 书签管理
+│   │   ├── index.js          # 书签主API（增删改查）
+│   │   └── [id].js           # 单个书签操作
+│   ├── categories/           # 分类管理
+│   │   ├── index.js          # 分类主API
+│   │   └── [id].js           # 单个分类操作
+│   ├── database/             # 数据库管理
+│   │   ├── check.js          # 数据库检查
+│   │   └── init.js           # 数据库初始化
+│   ├── system/               # 系统功能
+│   │   ├── stats.js          # 统计信息
+│   │   ├── domains.js        # 域名管理
+│   │   ├── settings.js       # 系统设置
+│   │   ├── logs.js           # 日志管理
+│   │   ├── export.js         # 数据导出
+│   │   └── import.js         # 数据导入
 │   └── utils/
 │       └── cors.js           # CORS工具函数
-├── setup-database.sql        # 一键建表SQL
 ├── wrangler.toml             # Cloudflare配置
 └── README.md                 # 说明文档
 ```
