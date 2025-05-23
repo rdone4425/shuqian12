@@ -25,7 +25,8 @@ const adminState = {
 const adminElements = {
   // 侧边栏
   addBookmarkBtn: document.getElementById('add-bookmark-btn'),
-  menuItems: document.querySelectorAll('.menu-item'),
+  addBookmarkBtnMain: document.getElementById('add-bookmark-btn-main'),
+  menuItems: document.querySelectorAll('.nav-item'),
 
   // 标签页
   tabContents: document.querySelectorAll('.tab-content'),
@@ -33,9 +34,14 @@ const adminElements = {
   categoriesTab: document.getElementById('categories-tab'),
   settingsTab: document.getElementById('settings-tab'),
 
+  // 仪表板统计
+  dashboardBookmarks: document.getElementById('dashboard-bookmarks'),
+  dashboardDomains: document.getElementById('dashboard-domains'),
+  dashboardCategories: document.getElementById('dashboard-categories'),
+  dashboardStatus: document.getElementById('dashboard-status'),
+
   // 书签管理
   bookmarkSearch: document.getElementById('bookmark-search'),
-  searchBtn: document.getElementById('search-btn'),
   adminDomainFilter: document.getElementById('admin-domain-filter'),
   adminCategoryFilter: document.getElementById('admin-category-filter'),
   adminSubcategoryFilter: document.getElementById('admin-subcategory-filter'),
@@ -235,7 +241,16 @@ async function loadDomains() {
 // 加载书签
 async function loadBookmarks(page = 1) {
   try {
-    adminElements.bookmarksTableBody.innerHTML = '<tr><td colspan="6" class="loading-cell">加载中...</td></tr>';
+    adminElements.bookmarksTableBody.innerHTML = `
+      <tr class="loading-row">
+        <td colspan="6">
+          <div class="loading-content">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>加载中...</span>
+          </div>
+        </td>
+      </tr>
+    `;
 
     const params = new URLSearchParams({
       page: page,
@@ -276,13 +291,44 @@ async function updateStats() {
 
     if (data.success) {
       const stats = data.stats || data.data || {};
-      adminElements.totalBookmarks.textContent = stats.bookmarks_count || stats.total_bookmarks || 0;
-      adminElements.totalDomains.textContent = stats.domains_count || stats.total_domains || 0;
-      adminElements.totalCategories.textContent = stats.categories_count || stats.total_categories || 0;
-      adminElements.lastUpdate.textContent = stats.last_update ? formatDate(stats.last_update) : '未知';
+      const bookmarksCount = stats.bookmarks_count || stats.total_bookmarks || 0;
+      const domainsCount = stats.domains_count || stats.total_domains || 0;
+      const categoriesCount = stats.categories_count || stats.total_categories || 0;
+
+      // 更新设置页面的统计
+      if (adminElements.totalBookmarks) {
+        adminElements.totalBookmarks.textContent = bookmarksCount;
+      }
+      if (adminElements.totalDomains) {
+        adminElements.totalDomains.textContent = domainsCount;
+      }
+      if (adminElements.totalCategories) {
+        adminElements.totalCategories.textContent = categoriesCount;
+      }
+      if (adminElements.lastUpdate) {
+        adminElements.lastUpdate.textContent = stats.last_update ? formatDate(stats.last_update) : '未知';
+      }
+
+      // 更新仪表板统计
+      if (adminElements.dashboardBookmarks) {
+        adminElements.dashboardBookmarks.textContent = bookmarksCount;
+      }
+      if (adminElements.dashboardDomains) {
+        adminElements.dashboardDomains.textContent = domainsCount;
+      }
+      if (adminElements.dashboardCategories) {
+        adminElements.dashboardCategories.textContent = categoriesCount;
+      }
+      if (adminElements.dashboardStatus) {
+        adminElements.dashboardStatus.textContent = '正常';
+      }
     }
   } catch (error) {
     console.error('加载统计信息失败:', error);
+    // 设置默认值
+    if (adminElements.dashboardStatus) {
+      adminElements.dashboardStatus.textContent = '异常';
+    }
   }
 }
 
@@ -300,7 +346,16 @@ function formatDate(dateString) {
 
 // 显示错误信息
 function showError(message) {
-  adminElements.bookmarksTableBody.innerHTML = `<tr><td colspan="6" class="loading-cell" style="color: var(--danger-color);">${message}</td></tr>`;
+  adminElements.bookmarksTableBody.innerHTML = `
+    <tr class="loading-row">
+      <td colspan="6">
+        <div class="loading-content" style="color: #e53e3e;">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span>${message}</span>
+        </div>
+      </td>
+    </tr>
+  `;
 }
 
 // 加载主题
@@ -331,16 +386,28 @@ function setupAdminEventListeners() {
     openBookmarkDialog();
   });
 
-  // 搜索功能
-  adminElements.searchBtn.addEventListener('click', () => {
-    adminState.filters.search = adminElements.bookmarkSearch.value;
-    loadBookmarks(1);
-  });
+  // 主要添加书签按钮
+  if (adminElements.addBookmarkBtnMain) {
+    adminElements.addBookmarkBtnMain.addEventListener('click', () => {
+      openBookmarkDialog();
+    });
+  }
 
+  // 搜索功能
   adminElements.bookmarkSearch.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
-      adminElements.searchBtn.click();
+      adminState.filters.search = adminElements.bookmarkSearch.value;
+      loadBookmarks(1);
     }
+  });
+
+  adminElements.bookmarkSearch.addEventListener('input', (e) => {
+    // 实时搜索，延迟500ms
+    clearTimeout(adminState.searchTimeout);
+    adminState.searchTimeout = setTimeout(() => {
+      adminState.filters.search = e.target.value;
+      loadBookmarks(1);
+    }, 500);
   });
 
   // 筛选器
@@ -444,6 +511,9 @@ function switchTab(tabName) {
 
   // 根据标签页加载相应数据
   switch (tabName) {
+    case 'dashboard':
+      updateStats();
+      break;
     case 'bookmarks':
       loadBookmarks();
       break;
@@ -469,7 +539,16 @@ function renderBookmarksTable() {
   adminElements.bookmarksTableBody.innerHTML = '';
 
   if (adminState.bookmarks.length === 0) {
-    adminElements.bookmarksTableBody.innerHTML = '<tr><td colspan="6" class="loading-cell">没有找到书签</td></tr>';
+    adminElements.bookmarksTableBody.innerHTML = `
+      <tr class="loading-row">
+        <td colspan="6">
+          <div class="loading-content">
+            <i class="fas fa-search"></i>
+            <span>没有找到书签</span>
+          </div>
+        </td>
+      </tr>
+    `;
     return;
   }
 
@@ -478,28 +557,36 @@ function renderBookmarksTable() {
 
     // 查找分类名称
     let categoryName = '未分类';
-    if (bookmark.category_id) {
+    if (bookmark.category_name) {
+      categoryName = bookmark.category_name;
+    } else if (bookmark.category_id) {
       const category = adminState.categories.find(cat => cat.id === bookmark.category_id);
       if (category) categoryName = category.name;
+    } else if (bookmark.category) {
+      categoryName = bookmark.category;
     }
 
     row.innerHTML = `
       <td>${(adminState.currentPage - 1) * adminState.itemsPerPage + index + 1}</td>
       <td>
-        <div style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${bookmark.title}">
+        <div style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${bookmark.title}">
           ${bookmark.title}
         </div>
       </td>
-      <td>${bookmark.domain}</td>
+      <td>
+        <div style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${bookmark.domain}">
+          ${bookmark.domain}
+        </div>
+      </td>
       <td>${categoryName}</td>
       <td>${formatDate(bookmark.created_at)}</td>
       <td>
         <div class="action-buttons">
-          <button class="admin-btn edit-btn" onclick="editBookmark(${bookmark.id})">
-            <i class="fas fa-edit"></i> 编辑
+          <button class="action-btn edit-btn" onclick="editBookmark(${bookmark.id})" title="编辑书签">
+            <i class="fas fa-edit"></i>
           </button>
-          <button class="admin-btn danger-btn" onclick="deleteBookmark(${bookmark.id})">
-            <i class="fas fa-trash"></i> 删除
+          <button class="action-btn delete-btn" onclick="deleteBookmark(${bookmark.id})" title="删除书签">
+            <i class="fas fa-trash"></i>
           </button>
         </div>
       </td>

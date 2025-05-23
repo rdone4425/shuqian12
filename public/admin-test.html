@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理后台测试页面</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .test-item {
+      margin: 15px 0;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #ddd;
+    }
+    .success {
+      background: #f0f9ff;
+      border-left-color: #10b981;
+      color: #065f46;
+    }
+    .error {
+      background: #fef2f2;
+      border-left-color: #ef4444;
+      color: #991b1b;
+    }
+    .info {
+      background: #f0f9ff;
+      border-left-color: #3b82f6;
+      color: #1e40af;
+    }
+    button {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 10px 5px;
+      font-size: 16px;
+    }
+    button:hover {
+      background: #2563eb;
+    }
+    pre {
+      background: #f3f4f6;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 管理后台测试页面</h1>
+    <p>这个页面帮助你测试管理后台的各项功能是否正常工作。</p>
+    
+    <div class="test-item info">
+      <h3>📋 测试项目</h3>
+      <ol>
+        <li>检查CSS文件是否正确加载</li>
+        <li>检查JavaScript文件是否正确加载</li>
+        <li>检查DOM元素是否存在</li>
+        <li>检查API连接是否正常</li>
+        <li>检查事件监听器是否正常</li>
+      </ol>
+    </div>
+
+    <button onclick="runTests()">🚀 开始测试</button>
+    <button onclick="clearResults()">🧹 清除结果</button>
+    <button onclick="openAdmin()">🔗 打开管理后台</button>
+
+    <div id="results"></div>
+  </div>
+
+  <script>
+    const results = document.getElementById('results');
+
+    function addResult(title, content, type = 'info') {
+      const div = document.createElement('div');
+      div.className = `test-item ${type}`;
+      div.innerHTML = `<h3>${title}</h3><div>${content}</div>`;
+      results.appendChild(div);
+    }
+
+    function clearResults() {
+      results.innerHTML = '';
+    }
+
+    function openAdmin() {
+      window.open('admin.html', '_blank');
+    }
+
+    async function runTests() {
+      clearResults();
+      
+      // 测试1: 检查CSS文件
+      addResult('🔄 测试1: CSS文件检查', '检查中...');
+      try {
+        const response = await fetch('css/admin-modern.css');
+        if (response.ok) {
+          const cssText = await response.text();
+          addResult('✅ 测试1: CSS文件检查', `
+            <p><strong>状态:</strong> CSS文件加载成功</p>
+            <p><strong>文件大小:</strong> ${(cssText.length / 1024).toFixed(2)} KB</p>
+            <p><strong>包含样式:</strong> ${cssText.includes('.admin-body') ? '是' : '否'}</p>
+          `, 'success');
+        } else {
+          addResult('❌ 测试1: CSS文件检查', `
+            <p><strong>错误:</strong> CSS文件加载失败 (${response.status})</p>
+          `, 'error');
+        }
+      } catch (error) {
+        addResult('❌ 测试1: CSS文件检查', `
+          <p><strong>错误:</strong> ${error.message}</p>
+        `, 'error');
+      }
+
+      // 测试2: 检查JavaScript文件
+      addResult('🔄 测试2: JavaScript文件检查', '检查中...');
+      try {
+        const response = await fetch('js/admin.js');
+        if (response.ok) {
+          const jsText = await response.text();
+          addResult('✅ 测试2: JavaScript文件检查', `
+            <p><strong>状态:</strong> JavaScript文件加载成功</p>
+            <p><strong>文件大小:</strong> ${(jsText.length / 1024).toFixed(2)} KB</p>
+            <p><strong>包含函数:</strong> ${jsText.includes('initAdmin') ? '是' : '否'}</p>
+          `, 'success');
+        } else {
+          addResult('❌ 测试2: JavaScript文件检查', `
+            <p><strong>错误:</strong> JavaScript文件加载失败 (${response.status})</p>
+          `, 'error');
+        }
+      } catch (error) {
+        addResult('❌ 测试2: JavaScript文件检查', `
+          <p><strong>错误:</strong> ${error.message}</p>
+        `, 'error');
+      }
+
+      // 测试3: 检查HTML文件
+      addResult('🔄 测试3: HTML文件检查', '检查中...');
+      try {
+        const response = await fetch('admin.html');
+        if (response.ok) {
+          const htmlText = await response.text();
+          const hasNavbar = htmlText.includes('admin-navbar');
+          const hasSidebar = htmlText.includes('admin-sidebar');
+          const hasMainContent = htmlText.includes('admin-main');
+          const hasModernCSS = htmlText.includes('admin-modern.css');
+          
+          addResult('✅ 测试3: HTML文件检查', `
+            <p><strong>状态:</strong> HTML文件加载成功</p>
+            <p><strong>文件大小:</strong> ${(htmlText.length / 1024).toFixed(2)} KB</p>
+            <p><strong>包含导航栏:</strong> ${hasNavbar ? '是' : '否'}</p>
+            <p><strong>包含侧边栏:</strong> ${hasSidebar ? '是' : '否'}</p>
+            <p><strong>包含主内容:</strong> ${hasMainContent ? '是' : '否'}</p>
+            <p><strong>引用现代CSS:</strong> ${hasModernCSS ? '是' : '否'}</p>
+          `, hasNavbar && hasSidebar && hasMainContent && hasModernCSS ? 'success' : 'error');
+        } else {
+          addResult('❌ 测试3: HTML文件检查', `
+            <p><strong>错误:</strong> HTML文件加载失败 (${response.status})</p>
+          `, 'error');
+        }
+      } catch (error) {
+        addResult('❌ 测试3: HTML文件检查', `
+          <p><strong>错误:</strong> ${error.message}</p>
+        `, 'error');
+      }
+
+      // 测试4: 检查API连接
+      addResult('🔄 测试4: API连接检查', '检查中...');
+      try {
+        const response = await fetch('/api/status');
+        const data = await response.json();
+        
+        if (response.ok) {
+          addResult('✅ 测试4: API连接检查', `
+            <p><strong>状态:</strong> API连接正常</p>
+            <p><strong>数据库状态:</strong> ${data.status}</p>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          `, 'success');
+        } else {
+          addResult('❌ 测试4: API连接检查', `
+            <p><strong>错误:</strong> API响应错误 (${response.status})</p>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          `, 'error');
+        }
+      } catch (error) {
+        addResult('❌ 测试4: API连接检查', `
+          <p><strong>错误:</strong> ${error.message}</p>
+          <p>可能原因：</p>
+          <ul>
+            <li>本地服务器未启动</li>
+            <li>API路由配置错误</li>
+            <li>CORS问题</li>
+          </ul>
+        `, 'error');
+      }
+
+      // 测试5: 检查Font Awesome
+      addResult('🔄 测试5: Font Awesome检查', '检查中...');
+      try {
+        const response = await fetch('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+        if (response.ok) {
+          addResult('✅ 测试5: Font Awesome检查', `
+            <p><strong>状态:</strong> Font Awesome加载成功</p>
+            <p><strong>CDN状态:</strong> 正常</p>
+          `, 'success');
+        } else {
+          addResult('⚠️ 测试5: Font Awesome检查', `
+            <p><strong>警告:</strong> Font Awesome CDN响应异常</p>
+            <p>图标可能无法正常显示</p>
+          `, 'error');
+        }
+      } catch (error) {
+        addResult('⚠️ 测试5: Font Awesome检查', `
+          <p><strong>警告:</strong> 无法连接到Font Awesome CDN</p>
+          <p>图标可能无法正常显示</p>
+        `, 'error');
+      }
+
+      addResult('🎉 测试完成', `
+        <p>所有测试已完成。请根据上述结果进行相应的修复操作。</p>
+        <p><strong>建议：</strong></p>
+        <ul>
+          <li>如果CSS或JS文件加载失败：检查文件路径和服务器配置</li>
+          <li>如果API连接失败：确保后端服务正在运行</li>
+          <li>如果HTML结构有问题：检查admin.html文件</li>
+        </ul>
+        <p><a href="admin.html" target="_blank">点击这里打开管理后台</a></p>
+      `, 'info');
+    }
+  </script>
+</body>
+</html>

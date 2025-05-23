@@ -4,107 +4,243 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>书签管理系统 - 管理后台</title>
-  <link rel="stylesheet" href="css/styles.css">
-  <link rel="stylesheet" href="css/admin.css">
+  <link rel="stylesheet" href="css/admin-modern.css">
   <!-- Font Awesome 图标 -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- 网站图标 -->
   <link rel="icon" href="img/favicon.ico" type="image/x-icon">
 </head>
-<body>
-  <div class="container">
-    <header>
-      <h1><i class="fas fa-cog"></i> 书签管理系统 - 管理后台</h1>
-      <div class="header-actions">
-        <a href="index.html" class="nav-link"><i class="fas fa-home"></i> 返回前台</a>
-        <div class="db-status">数据库状态: <span id="db-status">检查中...</span></div>
-        <button id="show-help" class="help-button" title="显示帮助"><i class="fas fa-question-circle"></i></button>
+<body class="admin-body">
+  <!-- 顶部导航栏 -->
+  <nav class="admin-navbar">
+    <div class="navbar-brand">
+      <i class="fas fa-shield-alt"></i>
+      <span>管理后台</span>
+    </div>
+    <div class="navbar-center">
+      <div class="db-status-badge">
+        <i class="fas fa-database"></i>
+        <span id="db-status">检查中...</span>
       </div>
-    </header>
+    </div>
+    <div class="navbar-actions">
+      <button type="button" id="theme-toggle" class="nav-btn" title="切换主题">
+        <i class="fas fa-moon"></i>
+      </button>
+      <a href="index.html" class="nav-btn" title="返回前台">
+        <i class="fas fa-home"></i>
+      </a>
+      <button type="button" id="show-help" class="nav-btn" title="帮助">
+        <i class="fas fa-question-circle"></i>
+      </button>
+    </div>
+  </nav>
 
-    <div class="admin-panel">
-      <div class="admin-sidebar">
-        <button id="add-bookmark-btn" class="admin-btn primary-btn"><i class="fas fa-plus"></i> 添加书签</button>
-        <div class="admin-menu">
-          <div class="menu-item active" data-tab="bookmarks">
-            <i class="fas fa-bookmark"></i> 书签管理
+  <!-- 主要内容区域 -->
+  <div class="admin-layout">
+    <!-- 侧边栏 -->
+    <aside class="admin-sidebar">
+      <div class="sidebar-header">
+        <button id="add-bookmark-btn" class="primary-action-btn">
+          <i class="fas fa-plus"></i>
+          <span>添加书签</span>
+        </button>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-item active" data-tab="dashboard">
+          <i class="fas fa-chart-pie"></i>
+          <span>仪表板</span>
+        </div>
+        <div class="nav-item" data-tab="bookmarks">
+          <i class="fas fa-bookmark"></i>
+          <span>书签管理</span>
+        </div>
+        <div class="nav-item" data-tab="categories">
+          <i class="fas fa-folder-tree"></i>
+          <span>分类管理</span>
+        </div>
+        <div class="nav-item" data-tab="settings">
+          <i class="fas fa-cog"></i>
+          <span>系统设置</span>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- 主要内容区域 -->
+    <main class="admin-main">
+      <!-- 仪表板 -->
+      <div class="tab-content active" id="dashboard-tab">
+        <div class="page-header">
+          <h1>仪表板</h1>
+          <p>系统概览和快速操作</p>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon bookmarks">
+              <i class="fas fa-bookmark"></i>
+            </div>
+            <div class="stat-content">
+              <div class="stat-number" id="dashboard-bookmarks">0</div>
+              <div class="stat-label">书签总数</div>
+            </div>
           </div>
-          <div class="menu-item" data-tab="categories">
-            <i class="fas fa-folder"></i> 分类管理
+          <div class="stat-card">
+            <div class="stat-icon domains">
+              <i class="fas fa-globe"></i>
+            </div>
+            <div class="stat-content">
+              <div class="stat-number" id="dashboard-domains">0</div>
+              <div class="stat-label">网站数量</div>
+            </div>
           </div>
-          <div class="menu-item" data-tab="settings">
-            <i class="fas fa-cog"></i> 系统设置
+          <div class="stat-card">
+            <div class="stat-icon categories">
+              <i class="fas fa-folder"></i>
+            </div>
+            <div class="stat-content">
+              <div class="stat-number" id="dashboard-categories">0</div>
+              <div class="stat-label">分类数量</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon status">
+              <i class="fas fa-server"></i>
+            </div>
+            <div class="stat-content">
+              <div class="stat-number" id="dashboard-status">正常</div>
+              <div class="stat-label">系统状态</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 快速操作 -->
+        <div class="quick-actions">
+          <h2>快速操作</h2>
+          <div class="action-grid">
+            <button type="button" class="action-card" data-action="add-bookmark">
+              <i class="fas fa-plus"></i>
+              <span>添加书签</span>
+            </button>
+            <button type="button" class="action-card" data-action="add-category">
+              <i class="fas fa-folder-plus"></i>
+              <span>添加分类</span>
+            </button>
+            <button type="button" class="action-card" data-action="export-data">
+              <i class="fas fa-download"></i>
+              <span>导出数据</span>
+            </button>
+            <button type="button" class="action-card" data-action="backup-db">
+              <i class="fas fa-shield-alt"></i>
+              <span>备份数据</span>
+            </button>
           </div>
         </div>
       </div>
 
-      <div class="admin-content">
-        <!-- 书签管理 -->
-        <div class="tab-content active" id="bookmarks-tab">
-          <div class="content-header">
-            <h2>书签管理</h2>
-            <div class="search-bar">
+      <!-- 书签管理 -->
+      <div class="tab-content" id="bookmarks-tab">
+        <div class="page-header">
+          <h1>书签管理</h1>
+          <div class="header-actions">
+            <div class="search-box">
+              <i class="fas fa-search"></i>
               <input type="text" id="bookmark-search" placeholder="搜索书签...">
-              <button id="search-btn"><i class="fas fa-search"></i></button>
+            </div>
+            <button type="button" id="add-bookmark-btn-main" class="primary-btn">
+              <i class="fas fa-plus"></i>
+              添加书签
+            </button>
+          </div>
+        </div>
+
+        <!-- 筛选器 -->
+        <div class="filters-section">
+          <div class="filter-grid">
+            <div class="filter-item">
+              <label for="admin-domain-filter">域名筛选</label>
+              <select id="admin-domain-filter" class="filter-select">
+                <option value="">所有域名</option>
+              </select>
+            </div>
+            <div class="filter-item">
+              <label for="admin-category-filter">分类筛选</label>
+              <select id="admin-category-filter" class="filter-select">
+                <option value="">所有分类</option>
+              </select>
+            </div>
+            <div class="filter-item">
+              <label for="admin-subcategory-filter">子分类筛选</label>
+              <select id="admin-subcategory-filter" class="filter-select">
+                <option value="">所有子分类</option>
+              </select>
+            </div>
+            <div class="filter-item">
+              <button type="button" id="admin-apply-filters" class="filter-btn">
+                <i class="fas fa-filter"></i>
+                应用筛选
+              </button>
             </div>
           </div>
+        </div>
 
-          <div class="filters compact">
-            <div class="filter-group">
-              <label for="admin-domain-filter">域名:</label>
-              <select id="admin-domain-filter">
-                <option value="">全部</option>
-              </select>
-            </div>
-            <div class="filter-group">
-              <label for="admin-category-filter">分类:</label>
-              <select id="admin-category-filter">
-                <option value="">全部</option>
-              </select>
-            </div>
-            <div class="filter-group">
-              <label for="admin-subcategory-filter">子分类:</label>
-              <select id="admin-subcategory-filter">
-                <option value="">全部</option>
-              </select>
-            </div>
-            <button id="admin-apply-filters" class="admin-btn"><i class="fas fa-filter"></i> 筛选</button>
-          </div>
-
-          <div class="bookmarks-table-container">
-            <table class="bookmarks-table">
+        <!-- 书签表格 -->
+        <div class="table-container">
+          <div class="table-wrapper">
+            <table class="modern-table">
               <thead>
                 <tr>
-                  <th width="5%">#</th>
-                  <th width="30%">标题</th>
-                  <th width="20%">域名</th>
-                  <th width="15%">分类</th>
-                  <th width="15%">添加日期</th>
-                  <th width="15%">操作</th>
+                  <th class="col-id">#</th>
+                  <th class="col-title">标题</th>
+                  <th class="col-domain">域名</th>
+                  <th class="col-category">分类</th>
+                  <th class="col-date">添加日期</th>
+                  <th class="col-actions">操作</th>
                 </tr>
               </thead>
               <tbody id="bookmarks-table-body">
-                <!-- 书签列表将在这里动态加载 -->
-                <tr>
-                  <td colspan="6" class="loading-cell">加载中...</td>
+                <tr class="loading-row">
+                  <td colspan="6">
+                    <div class="loading-content">
+                      <i class="fas fa-spinner fa-spin"></i>
+                      <span>加载中...</span>
+                    </div>
+                  </td>
                 </tr>
               </tbody>
             </table>
           </div>
-
-          <div class="pagination admin-pagination">
-            <button id="admin-prev-page" disabled><i class="fas fa-chevron-left"></i> 上一页</button>
-            <span id="admin-page-info">第 1 页</span>
-            <button id="admin-next-page">下一页 <i class="fas fa-chevron-right"></i></button>
-          </div>
         </div>
 
-        <!-- 分类管理 -->
-        <div class="tab-content" id="categories-tab">
-          <div class="content-header">
-            <h2>分类管理</h2>
-            <button id="add-category-btn" class="admin-btn primary-btn"><i class="fas fa-plus"></i> 添加分类</button>
+        <!-- 分页控制 -->
+        <div class="pagination-section">
+          <div class="pagination-controls">
+            <button type="button" id="admin-prev-page" class="page-btn" disabled>
+              <i class="fas fa-chevron-left"></i>
+              上一页
+            </button>
+            <span id="admin-page-info" class="page-info">第 1 页</span>
+            <button type="button" id="admin-next-page" class="page-btn">
+              下一页
+              <i class="fas fa-chevron-right"></i>
+            </button>
           </div>
+        </div>
+      </div>
+
+      <!-- 分类管理 -->
+      <div class="tab-content" id="categories-tab">
+        <div class="page-header">
+          <h1>分类管理</h1>
+          <div class="header-actions">
+            <button type="button" id="add-category-btn" class="primary-btn">
+              <i class="fas fa-plus"></i>
+              添加分类
+            </button>
+          </div>
+        </div>
 
           <div class="categories-container">
             <div class="category-list">
@@ -125,11 +261,12 @@
           </div>
         </div>
 
-        <!-- 系统设置 -->
-        <div class="tab-content" id="settings-tab">
-          <div class="content-header">
-            <h2>系统设置</h2>
-          </div>
+      <!-- 系统设置 -->
+      <div class="tab-content" id="settings-tab">
+        <div class="page-header">
+          <h1>系统设置</h1>
+          <p>数据库管理和系统配置</p>
+        </div>
 
           <div class="settings-form">
             <div class="form-group">
