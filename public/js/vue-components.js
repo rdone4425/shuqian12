@@ -548,15 +548,44 @@ const AdminView = {
               <div class="status-item">
                 <span class="label">连接状态:</span>
                 <span :class="['status', dbStatus.connected ? 'success' : 'error']">
-                  {{ dbStatus.connected ? '已连接' : '未连接' }}
+                  {{ dbStatus.connected ? '✅ 已连接' : '❌ 未连接' }}
                 </span>
               </div>
               <div class="status-item">
                 <span class="label">表结构:</span>
                 <span :class="['status', dbStatus.tablesExist ? 'success' : 'warning']">
-                  {{ dbStatus.tablesExist ? '正常' : '需要初始化' }}
+                  {{ dbStatus.tablesExist ? '✅ 正常' : '⚠️ 需要初始化' }}
                 </span>
               </div>
+              <div v-if="dbStatus.health" class="status-item">
+                <span class="label">健康状态:</span>
+                <span :class="['status', dbStatus.health === 'healthy' ? 'success' : dbStatus.health === 'warning' ? 'warning' : 'error']">
+                  {{ dbStatus.message }} ({{ dbStatus.percentage }}%)
+                </span>
+              </div>
+            </div>
+
+            <!-- 快速操作按钮 -->
+            <div class="db-quick-actions" style="margin-top: 16px;">
+              <button
+                @click="checkDatabase"
+                class="btn btn-info btn-sm"
+                :disabled="dbLoading"
+                style="margin-right: 8px;"
+              >
+                <i class="fas fa-sync" :class="{ 'fa-spin': dbLoading }"></i>
+                {{ dbLoading ? '检查中...' : '重新检查' }}
+              </button>
+
+              <button
+                v-if="!dbStatus.tablesExist"
+                @click="initDatabase"
+                class="btn btn-success btn-sm"
+                :disabled="dbLoading"
+              >
+                <i class="fas fa-magic"></i>
+                快速初始化
+              </button>
             </div>
           </div>
         </div>
@@ -757,11 +786,36 @@ const AdminView = {
         const data = await response.json();
 
         if (data.success) {
+          // 正确解析 API 响应结构
+          const dbBinding = data.d1_binding || {};
+          const tables = data.tables || {};
+          const health = data.database_health || {};
+
           dbStatus.value = {
-            connected: data.database_connected || false,
-            tablesExist: data.tables_exist || false
+            connected: dbBinding.connected || false,
+            tablesExist: tables.missing ? tables.missing.length === 0 : false,
+            health: health.status || 'unknown',
+            percentage: health.percentage || 0,
+            message: health.message || '未知状态'
           };
-          alert('数据库检查完成');
+
+          // 显示详细的检查结果
+          let message = `数据库检查完成\n\n`;
+          message += `连接状态: ${dbBinding.connected ? '✅ 已连接' : '❌ 未连接'}\n`;
+          message += `健康状态: ${health.message} (${health.percentage}%)\n`;
+
+          if (tables.missing && tables.missing.length > 0) {
+            message += `\n缺少表: ${tables.missing.join(', ')}\n`;
+            message += `建议: 点击"初始化数据库"创建缺少的表`;
+          } else if (tables.existing && tables.existing.length > 0) {
+            message += `\n已存在表: ${tables.existing.join(', ')}`;
+          }
+
+          if (data.recommendations && data.recommendations.length > 0) {
+            message += `\n\n建议:\n${data.recommendations.join('\n')}`;
+          }
+
+          alert(message);
         } else {
           alert('数据库检查失败: ' + data.message);
         }
@@ -785,10 +839,24 @@ const AdminView = {
         const data = await response.json();
 
         if (data.success) {
-          alert('数据库初始化成功');
+          // 显示详细的初始化结果
+          let message = '数据库初始化完成！\n\n';
+          if (data.results && data.results.length > 0) {
+            message += '执行结果:\n';
+            data.results.forEach(result => {
+              message += `${result}\n`;
+            });
+          }
+          message += `\n初始化时间: ${data.timestamp || new Date().toLocaleString()}`;
+
+          alert(message);
           await checkDatabase(); // 重新检查状态
         } else {
-          alert('数据库初始化失败: ' + data.message);
+          let errorMessage = '数据库初始化失败: ' + data.message;
+          if (data.instructions && data.instructions.length > 0) {
+            errorMessage += '\n\n说明:\n' + data.instructions.join('\n');
+          }
+          alert(errorMessage);
         }
       } catch (error) {
         console.error('初始化数据库失败:', error);
