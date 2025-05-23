@@ -845,6 +845,11 @@ const AdminView = {
                 <i class="fas fa-database"></i>
                 检查数据库状态
               </button>
+
+              <button @click="testPathMatching" class="btn btn-success" :disabled="securityLoading">
+                <i class="fas fa-route"></i>
+                测试路径匹配
+              </button>
             </div>
 
             <!-- 显示设置 -->
@@ -1691,6 +1696,59 @@ const AdminView = {
       }
     };
 
+    // 测试路径匹配
+    const testPathMatching = async () => {
+      const testPaths = [];
+
+      // 添加当前设置的路径
+      if (securitySettings.value.home_path) {
+        testPaths.push(`/${securitySettings.value.home_path}`);
+        testPaths.push(`/${securitySettings.value.home_path}/`);
+      }
+
+      if (securitySettings.value.admin_path) {
+        testPaths.push(`/${securitySettings.value.admin_path}/admin.html`);
+      }
+
+      // 添加默认路径
+      testPaths.push('/');
+      testPaths.push('/index.html');
+      testPaths.push('/admin.html');
+
+      // 添加用户输入的测试路径
+      const userPath = prompt('请输入要测试的路径（例如：/y1veh6）：', '/y1veh6');
+      if (userPath) {
+        testPaths.push(userPath);
+      }
+
+      const results = [];
+
+      for (const testPath of testPaths) {
+        try {
+          const response = await fetch(`/api/debug/middleware-test?path=${encodeURIComponent(testPath)}`);
+          const data = await response.json();
+
+          if (data.success) {
+            const analysis = data.analysis;
+            results.push(`路径: ${testPath}`);
+            results.push(`- 受保护首页: ${analysis.matches.protectedHomePath.matches ? '✅ 匹配' : '❌ 不匹配'}`);
+            results.push(`- 受保护管理页: ${analysis.matches.protectedAdminPath.matches ? '✅ 匹配' : '❌ 不匹配'}`);
+            results.push(`- 被阻止: ${analysis.matches.blockedPaths.wouldBlock ? '✅ 是' : '❌ 否'}`);
+            results.push(`- 建议: ${data.suggestions[0] || '无'}`);
+            results.push('');
+          }
+        } catch (error) {
+          results.push(`路径: ${testPath} - 测试失败: ${error.message}`);
+          results.push('');
+        }
+      }
+
+      const messages = ['=== 路径匹配测试结果 ===', ''];
+      messages.push(...results);
+
+      alert(messages.join('\n'));
+    };
+
     // 日志管理函数
     const loadLogs = async (page = logCurrentPage.value) => {
       if (logsLoading.value) return;
@@ -2318,6 +2376,7 @@ const AdminView = {
       testPaths,
       checkPathProtection,
       checkDatabaseStatus,
+      testPathMatching,
       getIconUrl,
       handleIconError,
       getCategoryName,

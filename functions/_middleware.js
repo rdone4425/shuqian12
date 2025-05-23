@@ -85,20 +85,29 @@ export async function onRequest(context) {
     }
 
     // 调试日志
-    console.log('路径保护设置:', settings);
+    console.log('=== 中间件调试信息 ===');
     console.log('当前访问路径:', pathname);
+    console.log('路径保护设置:', settings);
+    console.log('首页路径保护启用:', settings.enable_home_path === 'true');
+    console.log('首页路径值:', settings.home_path);
+    console.log('管理路径值:', settings.admin_path);
 
     // 检查是否访问受保护的路径
     const isProtectedHomePath = settings.enable_home_path === 'true' &&
                                settings.home_path &&
-                               (pathname === `/${settings.home_path}/` || pathname === `/${settings.home_path}`);
+                               (pathname === `/${settings.home_path}` ||
+                                pathname === `/${settings.home_path}/`);
 
     const isProtectedAdminPath = settings.admin_path &&
                                 pathname === `/${settings.admin_path}/admin.html`;
 
+    console.log('路径匹配结果:');
+    console.log('- 受保护首页路径匹配:', isProtectedHomePath);
+    console.log('- 受保护管理路径匹配:', isProtectedAdminPath);
+
     // 如果访问受保护的首页路径，重写URL为首页
     if (isProtectedHomePath) {
-      console.log('访问受保护的首页路径，重写为首页');
+      console.log('✅ 访问受保护的首页路径，重写为首页');
       const newRequest = new Request(new URL('/index.html', request.url).href, {
         method: request.method,
         headers: request.headers,
@@ -126,8 +135,12 @@ export async function onRequest(context) {
     const shouldBlockAdminPage = settings.admin_path &&
                                 pathname === '/admin.html';
 
+    console.log('阻止路径检查:');
+    console.log('- 应该阻止首页:', shouldBlockHomePage);
+    console.log('- 应该阻止管理页:', shouldBlockAdminPage);
+
     if (shouldBlockHomePage || shouldBlockAdminPage) {
-      console.log('阻止访问默认路径:', pathname);
+      console.log('🚫 阻止访问默认路径:', pathname);
       return new Response(`
         <!DOCTYPE html>
         <html>
@@ -168,6 +181,7 @@ export async function onRequest(context) {
     }
 
     // 其他请求正常处理
+    console.log('✅ 路径未被保护，正常处理:', pathname);
     return next();
 
   } catch (error) {
