@@ -131,14 +131,51 @@ async function handleGetBookmarks(db, url) {
 async function handleCreateBookmark(db, request) {
   try {
     let data;
+    let rawBody = '';
+
+    // 先读取原始请求体用于调试
+    try {
+      rawBody = await request.text();
+      console.log('Raw request body:', rawBody);
+    } catch (error) {
+      console.error('Failed to read request body:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        message: '无法读取请求体: ' + error.message
+      }), {
+        status: 400,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // 检查是否为空请求体
+    if (!rawBody || rawBody.trim() === '') {
+      return new Response(JSON.stringify({
+        success: false,
+        message: '请求体为空，请发送书签数据',
+        debug: {
+          contentType: request.headers.get('content-type'),
+          method: request.method,
+          bodyLength: rawBody.length
+        }
+      }), {
+        status: 400,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+      });
+    }
 
     // 尝试解析JSON数据
     try {
-      data = await request.json();
+      data = JSON.parse(rawBody);
+      console.log('Parsed JSON data:', data);
     } catch (error) {
       return new Response(JSON.stringify({
         success: false,
-        message: '无效的JSON格式: ' + error.message
+        message: '无效的JSON格式: ' + error.message,
+        debug: {
+          rawBody: rawBody.substring(0, 500), // 只显示前500字符
+          contentType: request.headers.get('content-type')
+        }
       }), {
         status: 400,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
@@ -171,7 +208,15 @@ async function handleCreateBookmark(db, request) {
       return new Response(JSON.stringify({
         success: false,
         message: '缺少必要参数: title, url',
-        received_data: Object.keys(data)
+        debug: {
+          received_data: data,
+          data_type: typeof data,
+          is_array: Array.isArray(data),
+          keys: typeof data === 'object' ? Object.keys(data) : 'not an object',
+          has_title: !!(data && data.title),
+          has_url: !!(data && data.url),
+          has_bookmarks: !!(data && data.bookmarks)
+        }
       }), {
         status: 400,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }

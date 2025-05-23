@@ -465,6 +465,10 @@ const AdminView = {
                 <code class="api-url">{{ apiBaseUrl }}/api/debug</code>
               </div>
               <div class="info-item">
+                <span class="label">书签测试:</span>
+                <code class="api-url">{{ apiBaseUrl }}/api/test-bookmark</code>
+              </div>
+              <div class="info-item">
                 <span class="label">认证方式:</span>
                 <span class="value">无需认证（公开API）</span>
               </div>
@@ -494,6 +498,7 @@ const AdminView = {
               <div class="step">
                 <h4>4. 使用调试端点</h4>
                 <p>访问 <code>{{ apiBaseUrl }}/api/debug</code> 查看详细的请求信息</p>
+                <p>或使用 <code>{{ apiBaseUrl }}/api/test-bookmark</code> 专门测试书签数据</p>
               </div>
               <div class="step">
                 <h4>5. 常见错误码</h4>
@@ -1350,6 +1355,17 @@ const AdminView = {
               { name: 'url', type: 'string', required: false, description: '测试书签URL' }
             ],
             example: 'POST /api/debug\n{\n  "title": "测试书签",\n  "url": "https://example.com"\n}'
+          },
+          {
+            method: 'POST',
+            path: '/api/test-bookmark',
+            description: '专门测试书签API（不会实际插入数据）',
+            params: [
+              { name: 'title', type: 'string', required: true, description: '书签标题' },
+              { name: 'url', type: 'string', required: true, description: '书签URL' },
+              { name: 'domain', type: 'string', required: false, description: '域名（可自动提取）' }
+            ],
+            example: 'POST /api/test-bookmark\n{\n  "title": "测试书签",\n  "url": "https://example.com"\n}'
           }
         ]
       }
