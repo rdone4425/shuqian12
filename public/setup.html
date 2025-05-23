@@ -256,7 +256,7 @@
                     <h3>环境检查</h3>
                     <p>系统将检查必要的环境配置，包括数据库连接等。</p>
                 </div>
-                
+
                 <ul class="checklist" id="env-checklist">
                     <li id="check-db">检查数据库连接</li>
                     <li id="check-tables">检查数据表状态</li>
@@ -286,13 +286,22 @@
             <div class="setup-step" id="content-3">
                 <div class="success-box">
                     <h3>🎉 初始化完成！</h3>
-                    <p>系统已成功初始化，您现在可以开始使用书签管理系统了。</p>
+                    <p>系统已成功初始化，并创建了默认管理员账户。</p>
                 </div>
 
-                <button class="setup-btn" onclick="goToAdmin()">
-                    进入管理后台
+                <div class="info-box">
+                    <h3>默认管理员账户</h3>
+                    <p><strong>用户名:</strong> admin</p>
+                    <p><strong>密码:</strong> admin123</p>
+                    <p style="margin-top: 10px; font-size: 0.9em;">
+                        ⚠️ 请立即登录并修改默认密码以确保安全
+                    </p>
+                </div>
+
+                <button class="setup-btn" onclick="goToLogin()">
+                    立即登录
                 </button>
-                
+
                 <button class="setup-btn secondary" onclick="goToHome()">
                     访问首页
                 </button>
@@ -341,7 +350,7 @@
         // 检查单个项目
         async function checkItem(itemId, checkFunction) {
             const item = document.getElementById(itemId);
-            
+
             try {
                 const result = await checkFunction();
                 if (result) {
@@ -354,7 +363,7 @@
                 item.classList.add('error');
                 throw error;
             }
-            
+
             // 添加延迟以显示进度
             await new Promise(resolve => setTimeout(resolve, 500));
         }
@@ -363,7 +372,7 @@
         async function initializeDatabase() {
             const btn = document.getElementById('init-btn-text');
             const log = document.getElementById('init-log');
-            
+
             btn.innerHTML = '<span class="loading"></span>初始化中...';
             log.style.display = 'block';
             log.textContent = '开始初始化数据库...\n';
@@ -374,7 +383,7 @@
                 });
 
                 const data = await response.json();
-                
+
                 if (data.success) {
                     log.textContent += '✅ 数据库初始化成功\n';
                     if (data.results) {
@@ -382,7 +391,7 @@
                             log.textContent += result + '\n';
                         });
                     }
-                    
+
                     setTimeout(() => {
                         nextStep();
                     }, 2000);
@@ -414,6 +423,11 @@
                 const progress = (currentStep / 3) * 100;
                 document.getElementById('progress-fill').style.width = progress + '%';
             }
+        }
+
+        // 前往登录页面
+        function goToLogin() {
+            window.location.href = '/login.html';
         }
 
         // 前往管理后台

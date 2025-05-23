@@ -697,8 +697,144 @@ const AdminView = {
           </div>
 
           <div class="settings-cards">
+            <!-- 账户管理 -->
             <div class="settings-card">
-              <h3>显示设置</h3>
+              <h3><i class="fas fa-user-cog"></i> 账户管理</h3>
+              <div class="form-group">
+                <label>用户名</label>
+                <input
+                  v-model="userProfile.username"
+                  type="text"
+                  placeholder="输入新用户名"
+                  :disabled="profileLoading"
+                >
+              </div>
+              <div class="form-group">
+                <label>邮箱</label>
+                <input
+                  v-model="userProfile.email"
+                  type="email"
+                  placeholder="输入邮箱地址"
+                  :disabled="profileLoading"
+                >
+              </div>
+              <div class="form-group">
+                <label>当前密码</label>
+                <input
+                  v-model="userProfile.currentPassword"
+                  type="password"
+                  placeholder="输入当前密码"
+                  :disabled="profileLoading"
+                >
+              </div>
+              <div class="form-group">
+                <label>新密码</label>
+                <input
+                  v-model="userProfile.newPassword"
+                  type="password"
+                  placeholder="输入新密码（不修改请留空）"
+                  :disabled="profileLoading"
+                >
+              </div>
+              <button @click="updateProfile" class="btn btn-primary" :disabled="profileLoading">
+                <i class="fas fa-save" :class="{ 'fa-spin': profileLoading }"></i>
+                {{ profileLoading ? '保存中...' : '保存账户信息' }}
+              </button>
+            </div>
+
+            <!-- 安全设置 -->
+            <div class="settings-card">
+              <h3><i class="fas fa-shield-alt"></i> 安全设置</h3>
+
+              <!-- 管理后台路径 -->
+              <div class="form-group">
+                <label>管理后台路径</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <input
+                    v-model="securitySettings.admin_path"
+                    type="text"
+                    placeholder="自定义管理路径（留空使用默认）"
+                    :disabled="securityLoading"
+                  >
+                  <button @click="generateAdminPath" class="btn btn-info btn-sm" :disabled="securityLoading">
+                    <i class="fas fa-random"></i>
+                    随机生成
+                  </button>
+                </div>
+                <small style="color: #666; font-size: 0.875rem;">
+                  设置后管理后台将通过 /路径/admin.html 访问
+                </small>
+              </div>
+
+              <!-- 首页路径保护 -->
+              <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 8px;">
+                  <input
+                    v-model="securitySettings.enable_home_path"
+                    type="checkbox"
+                    :true-value="'true'"
+                    :false-value="'false'"
+                    :disabled="securityLoading"
+                  >
+                  启用首页路径保护
+                </label>
+              </div>
+
+              <div v-if="securitySettings.enable_home_path === 'true'" class="form-group">
+                <label>首页访问路径</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <input
+                    v-model="securitySettings.home_path"
+                    type="text"
+                    placeholder="自定义首页路径"
+                    :disabled="securityLoading"
+                  >
+                  <button @click="generateHomePath" class="btn btn-info btn-sm" :disabled="securityLoading">
+                    <i class="fas fa-random"></i>
+                    随机生成
+                  </button>
+                </div>
+                <small style="color: #666; font-size: 0.875rem;">
+                  设置后首页将通过 /路径/ 访问，原首页将显示404
+                </small>
+              </div>
+
+              <!-- 登录要求 -->
+              <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 8px;">
+                  <input
+                    v-model="securitySettings.require_login"
+                    type="checkbox"
+                    :true-value="'true'"
+                    :false-value="'false'"
+                    :disabled="securityLoading"
+                  >
+                  需要登录访问管理后台
+                </label>
+              </div>
+
+              <!-- 会话超时 -->
+              <div class="form-group">
+                <label>会话超时时间（小时）</label>
+                <select v-model="sessionTimeoutHours" :disabled="securityLoading">
+                  <option value="1">1小时</option>
+                  <option value="6">6小时</option>
+                  <option value="12">12小时</option>
+                  <option value="24">24小时</option>
+                  <option value="72">3天</option>
+                  <option value="168">7天</option>
+                </select>
+              </div>
+
+              <button @click="saveSecuritySettings" class="btn btn-primary" :disabled="securityLoading">
+                <i class="fas fa-save" :class="{ 'fa-spin': securityLoading }"></i>
+                {{ securityLoading ? '保存中...' : '保存安全设置' }}
+              </button>
+            </div>
+
+            <!-- 显示设置 -->
+            <div class="settings-card">
+              <h3><i class="fas fa-display"></i> 显示设置</h3>
               <div class="form-group">
                 <label>每页显示数量</label>
                 <select v-model="settings.itemsPerPage">
@@ -713,8 +849,9 @@ const AdminView = {
               </button>
             </div>
 
+            <!-- 统计信息 -->
             <div class="settings-card">
-              <h3>统计信息</h3>
+              <h3><i class="fas fa-chart-bar"></i> 统计信息</h3>
               <div class="stats-list">
                 <div class="stat-item">
                   <span class="label">书签总数:</span>
@@ -776,6 +913,33 @@ const AdminView = {
     // 设置相关
     const settings = ref({
       itemsPerPage: 20
+    });
+
+    // 用户资料管理
+    const userProfile = ref({
+      username: '',
+      email: '',
+      currentPassword: '',
+      newPassword: ''
+    });
+    const profileLoading = ref(false);
+
+    // 安全设置
+    const securitySettings = ref({
+      admin_path: '',
+      home_path: '',
+      enable_home_path: 'false',
+      require_login: 'false',
+      session_timeout: '86400'
+    });
+    const securityLoading = ref(false);
+
+    // 会话超时时间（小时）
+    const sessionTimeoutHours = computed({
+      get: () => Math.floor(parseInt(securitySettings.value.session_timeout) / 3600),
+      set: (hours) => {
+        securitySettings.value.session_timeout = (hours * 3600).toString();
+      }
     });
 
     // 统计信息
@@ -1226,6 +1390,154 @@ const AdminView = {
       } catch (error) {
         console.error('保存设置失败:', error);
         alert('保存设置失败: ' + error.message);
+      }
+    };
+
+    // 加载用户资料
+    const loadUserProfile = async () => {
+      try {
+        const response = await fetch('/api/auth/profile');
+        const data = await response.json();
+
+        if (data.success) {
+          userProfile.value.username = data.user.username;
+          userProfile.value.email = data.user.email || '';
+        }
+      } catch (error) {
+        console.error('加载用户资料失败:', error);
+      }
+    };
+
+    // 更新用户资料
+    const updateProfile = async () => {
+      if (!userProfile.value.username.trim()) {
+        alert('用户名不能为空');
+        return;
+      }
+
+      if (userProfile.value.newPassword && !userProfile.value.currentPassword) {
+        alert('修改密码需要提供当前密码');
+        return;
+      }
+
+      try {
+        profileLoading.value = true;
+
+        const updateData = {
+          username: userProfile.value.username,
+          email: userProfile.value.email
+        };
+
+        if (userProfile.value.newPassword) {
+          updateData.currentPassword = userProfile.value.currentPassword;
+          updateData.newPassword = userProfile.value.newPassword;
+        }
+
+        const response = await fetch('/api/auth/profile', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(updateData)
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          alert('用户资料更新成功');
+          // 清空密码字段
+          userProfile.value.currentPassword = '';
+          userProfile.value.newPassword = '';
+        } else {
+          alert('更新失败: ' + data.message);
+        }
+      } catch (error) {
+        console.error('更新用户资料失败:', error);
+        alert('更新失败: ' + error.message);
+      } finally {
+        profileLoading.value = false;
+      }
+    };
+
+    // 加载安全设置
+    const loadSecuritySettings = async () => {
+      try {
+        const response = await fetch('/api/settings/security');
+        const data = await response.json();
+
+        if (data.success) {
+          Object.keys(securitySettings.value).forEach(key => {
+            if (data.settings[key]) {
+              securitySettings.value[key] = data.settings[key].value;
+            }
+          });
+        }
+      } catch (error) {
+        console.error('加载安全设置失败:', error);
+      }
+    };
+
+    // 保存安全设置
+    const saveSecuritySettings = async () => {
+      try {
+        securityLoading.value = true;
+
+        const response = await fetch('/api/settings/security', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            settings: securitySettings.value
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          alert('安全设置保存成功');
+        } else {
+          alert('保存失败: ' + data.message);
+        }
+      } catch (error) {
+        console.error('保存安全设置失败:', error);
+        alert('保存失败: ' + error.message);
+      } finally {
+        securityLoading.value = false;
+      }
+    };
+
+    // 生成随机管理路径
+    const generateAdminPath = async () => {
+      try {
+        const response = await fetch('/api/utils/generate-path');
+        const data = await response.json();
+
+        if (data.success) {
+          securitySettings.value.admin_path = data.path;
+        } else {
+          alert('生成路径失败: ' + data.message);
+        }
+      } catch (error) {
+        console.error('生成路径失败:', error);
+        alert('生成路径失败: ' + error.message);
+      }
+    };
+
+    // 生成随机首页路径
+    const generateHomePath = async () => {
+      try {
+        const response = await fetch('/api/utils/generate-path');
+        const data = await response.json();
+
+        if (data.success) {
+          securitySettings.value.home_path = data.path;
+        } else {
+          alert('生成路径失败: ' + data.message);
+        }
+      } catch (error) {
+        console.error('生成路径失败:', error);
+        alert('生成路径失败: ' + error.message);
       }
     };
 
@@ -1771,9 +2083,11 @@ const AdminView = {
         // 加载日志
         loadLogs();
       } else if (newTab === 'settings') {
-        // 只有在数据库已初始化时才加载统计
+        // 加载设置页面数据
         if (dbStatus.value.tablesExist) {
           loadAdminStats();
+          loadUserProfile();
+          loadSecuritySettings();
         }
       }
     });
@@ -1794,6 +2108,11 @@ const AdminView = {
       dbLoading,
       dbStatus,
       settings,
+      userProfile,
+      profileLoading,
+      securitySettings,
+      securityLoading,
+      sessionTimeoutHours,
       adminStats,
       logs,
       logsLoading,
@@ -1840,6 +2159,12 @@ const AdminView = {
       exportData,
       importData,
       saveSettings,
+      loadUserProfile,
+      updateProfile,
+      loadSecuritySettings,
+      saveSecuritySettings,
+      generateAdminPath,
+      generateHomePath,
       getIconUrl,
       handleIconError,
       getCategoryName,

@@ -3,7 +3,7 @@
  */
 
 import { CORS_HEADERS } from '../../utils/cors.js';
-import { 
+import {
   hashPassword,
   validateSession,
   getSessionFromRequest
@@ -24,10 +24,10 @@ export async function onRequest(context) {
       throw new Error('数据库未配置');
     }
 
-    // 验证会话（除了创建第一个用户）
+    // 验证会话
     const sessionId = getSessionFromRequest(request);
     let currentUser = null;
-    
+
     if (sessionId) {
       currentUser = await validateSession(db, sessionId);
     }
@@ -36,12 +36,7 @@ export async function onRequest(context) {
     const userCount = await db.prepare('SELECT COUNT(*) as count FROM users').first();
     const hasUsers = userCount.count > 0;
 
-    // 如果没有用户且是POST请求，允许创建第一个用户
-    if (!hasUsers && method === 'POST') {
-      return await createFirstUser(db, request);
-    }
-
-    // 其他操作需要登录
+    // 所有操作都需要登录
     if (!currentUser) {
       return new Response(JSON.stringify({
         success: false,
@@ -74,7 +69,7 @@ export async function onRequest(context) {
 
   } catch (error) {
     console.error('用户管理失败:', error);
-    
+
     return new Response(JSON.stringify({
       success: false,
       message: '用户管理失败: ' + error.message
@@ -85,69 +80,12 @@ export async function onRequest(context) {
   }
 }
 
-// 创建第一个用户
-async function createFirstUser(db, request) {
-  const body = await request.json();
-  const { username, password, email } = body;
 
-  if (!username || !password) {
-    return new Response(JSON.stringify({
-      success: false,
-      message: '用户名和密码不能为空'
-    }), {
-      status: 400,
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
-    });
-  }
-
-  // 验证用户名格式
-  if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
-    return new Response(JSON.stringify({
-      success: false,
-      message: '用户名只能包含字母、数字和下划线，长度3-20位'
-    }), {
-      status: 400,
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
-    });
-  }
-
-  // 验证密码强度
-  if (password.length < 6) {
-    return new Response(JSON.stringify({
-      success: false,
-      message: '密码长度至少6位'
-    }), {
-      status: 400,
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
-    });
-  }
-
-  const passwordHash = await hashPassword(password);
-
-  const result = await db.prepare(`
-    INSERT INTO users (username, password_hash, email, role)
-    VALUES (?, ?, ?, 'admin')
-  `).bind(username, passwordHash, email || null).run();
-
-  return new Response(JSON.stringify({
-    success: true,
-    message: '第一个管理员用户创建成功',
-    user: {
-      id: result.meta.last_row_id,
-      username: username,
-      email: email,
-      role: 'admin'
-    }
-  }), {
-    status: 201,
-    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
-  });
-}
 
 // 获取用户列表
 async function getUsers(db, currentUser) {
   const users = await db.prepare(`
-    SELECT id, username, email, role, last_login, login_attempts, 
+    SELECT id, username, email, role, last_login, login_attempts,
            locked_until, created_at
     FROM users
     ORDER BY created_at DESC
@@ -302,7 +240,7 @@ async function deleteUser(db, request, currentUser) {
 
   // 删除用户的会话
   await db.prepare('DELETE FROM sessions WHERE user_id = ?').bind(userId).run();
-  
+
   // 删除用户
   await db.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
 

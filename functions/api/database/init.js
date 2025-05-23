@@ -207,6 +207,8 @@ export async function onRequest(context) {
         { key: 'sync_interval', value: '300', description: '同步间隔（秒）' },
         { key: 'theme', value: 'light', description: '主题设置' },
         { key: 'admin_path', value: '', description: '管理后台访问路径（为空表示使用默认路径）' },
+        { key: 'home_path', value: '', description: '首页访问路径（为空表示使用默认路径）' },
+        { key: 'enable_home_path', value: 'false', description: '是否启用首页路径保护' },
         { key: 'require_login', value: 'false', description: '是否需要登录访问管理后台' },
         { key: 'session_timeout', value: '86400', description: '会话超时时间（秒）' },
         { key: 'max_login_attempts', value: '5', description: '最大登录尝试次数' },
@@ -228,7 +230,32 @@ export async function onRequest(context) {
       results.push('❌ 默认设置插入失败: ' + error.message);
     }
 
-    // 10. 插入默认分类
+    // 10. 创建默认管理员账户
+    try {
+      // 检查是否已有用户
+      const existingUsers = await db.prepare('SELECT COUNT(*) as count FROM users').first();
+
+      if (existingUsers.count === 0) {
+        // 导入密码哈希函数
+        const { hashPassword } = await import('../../utils/auth.js');
+
+        // 创建默认管理员账户
+        const defaultPassword = await hashPassword('admin123');
+
+        await db.prepare(`
+          INSERT INTO users (username, password_hash, email, role)
+          VALUES (?, ?, ?, ?)
+        `).bind('admin', defaultPassword, 'admin@localhost', 'admin').run();
+
+        results.push('✅ 默认管理员账户创建成功 (用户名: admin, 密码: admin123)');
+      } else {
+        results.push('ℹ️ 用户账户已存在，跳过默认账户创建');
+      }
+    } catch (error) {
+      results.push('❌ 默认管理员账户创建失败: ' + error.message);
+    }
+
+    // 11. 插入默认分类
     try {
       const defaultCategories = [
         { name: '工作', description: '工作相关的书签' },

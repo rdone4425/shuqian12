@@ -747,15 +747,9 @@
             const data = await response.json();
 
             if (response.status === 401) {
-              if (!data.hasUsers) {
-                // 没有用户，跳转到登录页面进行初始设置
-                window.location.href = '/login.html';
-                return;
-              } else {
-                // 需要登录
-                window.location.href = '/login.html';
-                return;
-              }
+              // 需要登录
+              window.location.href = '/login.html';
+              return;
             }
 
             if (data.success && data.users) {
