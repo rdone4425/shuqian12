@@ -130,104 +130,86 @@ async function handleGetBookmarks(db, url) {
 // 创建新书签
 async function handleCreateBookmark(db, request) {
   try {
+    // 读取并解析请求数据
     let data;
-    let rawBody = '';
-
-    // 先读取原始请求体用于调试
     try {
-      rawBody = await request.text();
-      console.log('Raw request body:', rawBody);
-    } catch (error) {
-      console.error('Failed to read request body:', error);
-      return new Response(JSON.stringify({
-        success: false,
-        message: '无法读取请求体: ' + error.message
-      }), {
-        status: 400,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // 检查是否为空请求体
-    if (!rawBody || rawBody.trim() === '') {
-      return new Response(JSON.stringify({
-        success: false,
-        message: '请求体为空，请发送书签数据',
-        debug: {
-          contentType: request.headers.get('content-type'),
-          method: request.method,
-          bodyLength: rawBody.length
-        }
-      }), {
-        status: 400,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // 尝试解析JSON数据
-    try {
-      data = JSON.parse(rawBody);
-      console.log('Parsed JSON data:', data);
+      data = await request.json();
     } catch (error) {
       return new Response(JSON.stringify({
         success: false,
-        message: '无效的JSON格式: ' + error.message,
-        debug: {
-          rawBody: rawBody.substring(0, 500), // 只显示前500字符
-          contentType: request.headers.get('content-type')
-        }
+        message: '无效的JSON格式或请求体为空',
+        error: error.message
       }), {
         status: 400,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
-    // 支持多种数据格式
+    // 检查数据格式并提取字段
     let title, url, domain, path, category_id, subcategory, icon_url, description;
+    let bookmarkData = data;
 
-    // 处理单个书签对象
-    if (data.title && data.url) {
-      title = data.title;
-      url = data.url;
-      domain = data.domain || extractDomain(data.url);
-      path = data.path || extractPath(data.url);
-      category_id = data.category_id || data.categoryId || null;
-      subcategory = data.subcategory || null;
-      icon_url = data.icon_url || data.iconUrl || data.favIconUrl || null;
-      description = data.description || null;
-    }
-    // 处理书签数组（批量导入）
-    else if (Array.isArray(data) && data.length > 0) {
-      return await handleBatchCreateBookmarks(db, data);
-    }
-    // 处理包含bookmarks数组的对象
-    else if (data.bookmarks && Array.isArray(data.bookmarks)) {
-      return await handleBatchCreateBookmarks(db, data.bookmarks);
-    }
-    else {
-      return new Response(JSON.stringify({
-        success: false,
-        message: '缺少必要参数: title, url',
-        debug: {
-          received_data: data,
-          data_type: typeof data,
-          is_array: Array.isArray(data),
-          keys: typeof data === 'object' ? Object.keys(data) : 'not an object',
-          has_title: !!(data && data.title),
-          has_url: !!(data && data.url),
-          has_bookmarks: !!(data && data.bookmarks)
-        }
-      }), {
-        status: 400,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
-      });
+    // 处理Chrome插件格式：{ action: "create", data: bookmarkData }
+    if (data.action && data.data) {
+      console.log('检测到Chrome插件格式:', data.action);
+
+      if (data.action === 'fullSync' && Array.isArray(data.data)) {
+        return await handleBatchCreateBookmarks(db, data.data);
+      } else if (data.action === 'create' || data.action === 'update') {
+        bookmarkData = data.data;
+      } else {
+        return new Response(JSON.stringify({
+          success: false,
+          message: `不支持的操作: ${data.action}`,
+          supported_actions: ['create', 'update', 'fullSync']
+        }), {
+          status: 400,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+        });
+      }
     }
 
+    // 处理批量导入（直接数组格式）
+    if (Array.isArray(bookmarkData)) {
+      return await handleBatchCreateBookmarks(db, bookmarkData);
+    }
+
+    if (bookmarkData.bookmarks && Array.isArray(bookmarkData.bookmarks)) {
+      return await handleBatchCreateBookmarks(db, bookmarkData.bookmarks);
+    }
+
+    // 处理单个书签 - 提取字段
+    title = bookmarkData.title;
+    url = bookmarkData.url;
+    domain = bookmarkData.domain || (url ? extractDomain(url) : null);
+    path = bookmarkData.path || (url ? extractPath(url) : null);
+    category_id = bookmarkData.category_id || bookmarkData.categoryId || null;
+    subcategory = bookmarkData.subcategory || null;
+    icon_url = bookmarkData.icon_url || bookmarkData.iconUrl || bookmarkData.favIconUrl || null;
+    description = bookmarkData.description || null;
+
+    // 验证必要字段
     if (!title || !url) {
       return new Response(JSON.stringify({
         success: false,
-        message: '缺少必要参数: title, url',
-        received_data: data
+        message: '缺少必要参数: title 和 url',
+        debug: {
+          original_data: data,
+          processed_bookmark_data: bookmarkData,
+          extracted_fields: {
+            title: title || null,
+            url: url || null,
+            domain: domain || null
+          },
+          validation: {
+            hasTitle: !!title,
+            hasUrl: !!url,
+            hasAction: !!(data && data.action),
+            hasData: !!(data && data.data)
+          },
+          data_keys: Object.keys(data || {}),
+          bookmark_data_keys: Object.keys(bookmarkData || {})
+        }
       }), {
         status: 400,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
