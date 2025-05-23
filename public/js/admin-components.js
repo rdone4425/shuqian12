@@ -461,12 +461,47 @@ const AdminView = {
                 <code class="api-url">{{ apiBaseUrl }}/api/bookmarks</code>
               </div>
               <div class="info-item">
+                <span class="label">调试端点:</span>
+                <code class="api-url">{{ apiBaseUrl }}/api/debug</code>
+              </div>
+              <div class="info-item">
                 <span class="label">认证方式:</span>
                 <span class="value">无需认证（公开API）</span>
               </div>
               <div class="info-item">
                 <span class="label">数据格式:</span>
                 <span class="value">JSON</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chrome插件故障排除 -->
+          <div class="api-info-card">
+            <h3><i class="fas fa-exclamation-triangle"></i> Chrome插件故障排除</h3>
+            <div class="troubleshooting-steps">
+              <div class="step">
+                <h4>1. 检查API地址配置</h4>
+                <p>确保Chrome插件中的API地址设置为：<code>{{ apiBaseUrl }}/api/bookmarks</code></p>
+              </div>
+              <div class="step">
+                <h4>2. 测试API连接</h4>
+                <p>点击上方的"测试连接"按钮，确认API服务正常</p>
+              </div>
+              <div class="step">
+                <h4>3. 检查数据库状态</h4>
+                <p>前往"数据库"标签页，确认数据库已正确初始化</p>
+              </div>
+              <div class="step">
+                <h4>4. 使用调试端点</h4>
+                <p>访问 <code>{{ apiBaseUrl }}/api/debug</code> 查看详细的请求信息</p>
+              </div>
+              <div class="step">
+                <h4>5. 常见错误码</h4>
+                <ul>
+                  <li><strong>400 Bad Request:</strong> 请求数据格式错误，检查JSON格式</li>
+                  <li><strong>409 Conflict:</strong> 书签URL已存在</li>
+                  <li><strong>500 Server Error:</strong> 服务器错误，检查数据库连接</li>
+                </ul>
               </div>
             </div>
           </div>
@@ -1292,6 +1327,29 @@ const AdminView = {
               { name: 'categories', type: 'array', required: false, description: '分类数据' }
             ],
             example: 'POST /api/system/import\n{\n  "bookmarks": [...],\n  "categories": [...]\n}'
+          }
+        ]
+      },
+      {
+        name: '调试工具',
+        icon: 'fas fa-bug',
+        endpoints: [
+          {
+            method: 'GET',
+            path: '/api/debug',
+            description: '获取请求调试信息（用于诊断Chrome插件问题）',
+            params: [],
+            example: 'GET /api/debug'
+          },
+          {
+            method: 'POST',
+            path: '/api/debug',
+            description: '调试POST请求（测试Chrome插件数据格式）',
+            params: [
+              { name: 'title', type: 'string', required: false, description: '测试书签标题' },
+              { name: 'url', type: 'string', required: false, description: '测试书签URL' }
+            ],
+            example: 'POST /api/debug\n{\n  "title": "测试书签",\n  "url": "https://example.com"\n}'
           }
         ]
       }

@@ -66,18 +66,18 @@ async function handleGetBookmarks(db, url) {
     // 构建查询条件
     let whereClause = '';
     let queryParams = [];
-    
+
     if (domain) {
       whereClause += ' WHERE domain = ?';
       queryParams.push(domain);
     }
-    
+
     if (category) {
       whereClause += whereClause ? ' AND ' : ' WHERE ';
       whereClause += 'category_id = ?';
       queryParams.push(category);
     }
-    
+
     if (search) {
       whereClause += whereClause ? ' AND ' : ' WHERE ';
       whereClause += '(title LIKE ? OR url LIKE ?)';
@@ -91,13 +91,13 @@ async function handleGetBookmarks(db, url) {
 
     // 查询书签列表
     const bookmarksQuery = `
-      SELECT id, title, url, domain, path, category_id, subcategory, icon_url, description, created_at, updated_at 
-      FROM bookmarks 
+      SELECT id, title, url, domain, path, category_id, subcategory, icon_url, description, created_at, updated_at
+      FROM bookmarks
       ${whereClause}
-      ORDER BY created_at DESC 
+      ORDER BY created_at DESC
       LIMIT ? OFFSET ?
     `;
-    
+
     const bookmarksResult = await db.prepare(bookmarksQuery)
       .bind(...queryParams, limit, offset)
       .all();
@@ -130,13 +130,59 @@ async function handleGetBookmarks(db, url) {
 // 创建新书签
 async function handleCreateBookmark(db, request) {
   try {
-    const data = await request.json();
-    const { title, url, domain, path, category_id, subcategory, icon_url, description } = data;
+    let data;
 
-    if (!title || !url || !domain) {
+    // 尝试解析JSON数据
+    try {
+      data = await request.json();
+    } catch (error) {
       return new Response(JSON.stringify({
         success: false,
-        message: '缺少必要参数: title, url, domain'
+        message: '无效的JSON格式: ' + error.message
+      }), {
+        status: 400,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // 支持多种数据格式
+    let title, url, domain, path, category_id, subcategory, icon_url, description;
+
+    // 处理单个书签对象
+    if (data.title && data.url) {
+      title = data.title;
+      url = data.url;
+      domain = data.domain || extractDomain(data.url);
+      path = data.path || extractPath(data.url);
+      category_id = data.category_id || data.categoryId || null;
+      subcategory = data.subcategory || null;
+      icon_url = data.icon_url || data.iconUrl || data.favIconUrl || null;
+      description = data.description || null;
+    }
+    // 处理书签数组（批量导入）
+    else if (Array.isArray(data) && data.length > 0) {
+      return await handleBatchCreateBookmarks(db, data);
+    }
+    // 处理包含bookmarks数组的对象
+    else if (data.bookmarks && Array.isArray(data.bookmarks)) {
+      return await handleBatchCreateBookmarks(db, data.bookmarks);
+    }
+    else {
+      return new Response(JSON.stringify({
+        success: false,
+        message: '缺少必要参数: title, url',
+        received_data: Object.keys(data)
+      }), {
+        status: 400,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (!title || !url) {
+      return new Response(JSON.stringify({
+        success: false,
+        message: '缺少必要参数: title, url',
+        received_data: data
       }), {
         status: 400,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
@@ -184,5 +230,116 @@ async function handleCreateBookmark(db, request) {
       status: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
+  }
+}
+
+// 批量创建书签
+async function handleBatchCreateBookmarks(db, bookmarks) {
+  try {
+    const results = [];
+    let successCount = 0;
+    let skipCount = 0;
+    let errorCount = 0;
+
+    for (const bookmark of bookmarks) {
+      try {
+        const title = bookmark.title;
+        const url = bookmark.url;
+        const domain = bookmark.domain || extractDomain(url);
+        const path = bookmark.path || extractPath(url);
+        const category_id = bookmark.category_id || bookmark.categoryId || null;
+        const subcategory = bookmark.subcategory || null;
+        const icon_url = bookmark.icon_url || bookmark.iconUrl || bookmark.favIconUrl || null;
+        const description = bookmark.description || null;
+
+        if (!title || !url) {
+          results.push(`跳过无效书签: 缺少标题或URL`);
+          skipCount++;
+          continue;
+        }
+
+        // 检查是否已存在
+        const existing = await db.prepare('SELECT id FROM bookmarks WHERE url = ?').bind(url).first();
+        if (existing) {
+          results.push(`跳过重复书签: ${title}`);
+          skipCount++;
+          continue;
+        }
+
+        // 插入书签
+        await db.prepare(`
+          INSERT INTO bookmarks (title, url, domain, path, category_id, subcategory, icon_url, description)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(title, url, domain, path, category_id, subcategory, icon_url, description).run();
+
+        results.push(`成功添加: ${title}`);
+        successCount++;
+
+      } catch (error) {
+        results.push(`添加失败: ${bookmark.title || 'Unknown'} - ${error.message}`);
+        errorCount++;
+      }
+    }
+
+    // 更新域名统计
+    try {
+      const domains = await db.prepare('SELECT DISTINCT domain FROM bookmarks').all();
+      for (const domainRow of (domains.results || domains)) {
+        const count = await db.prepare('SELECT COUNT(*) as count FROM bookmarks WHERE domain = ?').bind(domainRow.domain).first();
+        await db.prepare(`
+          INSERT OR REPLACE INTO domains (domain, bookmark_count)
+          VALUES (?, ?)
+        `).bind(domainRow.domain, count.count).run();
+      }
+    } catch (error) {
+      console.error('更新域名统计失败:', error);
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: `批量导入完成: 成功${successCount}个，跳过${skipCount}个，失败${errorCount}个`,
+      summary: {
+        total: bookmarks.length,
+        success: successCount,
+        skipped: skipCount,
+        errors: errorCount
+      },
+      details: results
+    }), {
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('批量创建书签失败:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      message: '批量创建书签失败: ' + error.message
+    }), {
+      status: 500,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+// 从URL提取域名
+function extractDomain(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname;
+  } catch (error) {
+    // 如果URL无效，尝试简单的字符串处理
+    const match = url.match(/^https?:\/\/([^\/]+)/);
+    return match ? match[1] : 'unknown';
+  }
+}
+
+// 从URL提取路径
+function extractPath(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.pathname + urlObj.search + urlObj.hash;
+  } catch (error) {
+    // 如果URL无效，返回空路径
+    return '/';
   }
 }
