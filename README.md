@@ -114,6 +114,7 @@ https://your-pages-project.pages.dev/api/bookmarks
    - **"Cannot read properties of undefined"** → 已修复，系统会自动处理
    - **"加载书签/设置/分类失败"** → 检查数据库状态，执行初始化
    - **"管理后台初始化失败: 数据库连接失败"** → 已修复，现在会正确识别数据库状态
+   - **"前台不显示书签"** → 已修复，解决了API数据格式不匹配问题
 
 ## 🔌 Chrome插件集成
 

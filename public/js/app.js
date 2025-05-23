@@ -212,12 +212,17 @@ async function loadBookmarks(page = 1) {
 
     console.log('书签API响应:', data); // 调试信息
 
-    if (data.success && data.bookmarks) {
-      state.bookmarks = data.bookmarks || [];
+    if (data.success && (data.bookmarks || data.data)) {
+      // 兼容两种数据格式：data.bookmarks 或 data.data
+      state.bookmarks = data.bookmarks || data.data || [];
       state.currentPage = page;
-      state.totalPages = Math.ceil((data.total || 0) / state.itemsPerPage);
+
+      // 兼容两种分页格式：data.total 或 data.pagination.total
+      const total = data.total || (data.pagination && data.pagination.total) || 0;
+      state.totalPages = Math.ceil(total / state.itemsPerPage);
 
       console.log('加载的书签数量:', state.bookmarks.length); // 调试信息
+      console.log('总数量:', total); // 调试信息
       console.log('总页数:', state.totalPages); // 调试信息
 
       // 更新分页信息
@@ -283,7 +288,9 @@ function renderBookmarks() {
   const template = document.getElementById('bookmark-template');
 
   // 渲染每个书签
-  state.bookmarks.forEach(bookmark => {
+  state.bookmarks.forEach((bookmark, index) => {
+    console.log(`渲染书签 ${index + 1}:`, bookmark); // 调试信息
+
     const bookmarkElement = document.importNode(template.content, true);
 
     // 设置书签数据
@@ -297,11 +304,15 @@ function renderBookmarks() {
     const domain = bookmarkElement.querySelector('.bookmark-domain');
     domain.textContent = bookmark.domain;
 
-    // 查找分类名称
+    // 处理分类名称 - 兼容不同的字段名
     let categoryName = '未分类';
-    if (bookmark.category_id) {
+    if (bookmark.category_name) {
+      categoryName = bookmark.category_name;
+    } else if (bookmark.category_id) {
       const category = state.categories.find(cat => cat.id === bookmark.category_id);
       if (category) categoryName = category.name;
+    } else if (bookmark.category) {
+      categoryName = bookmark.category;
     }
 
     const category = bookmarkElement.querySelector('.bookmark-category');
@@ -354,14 +365,27 @@ function updateStats() {
   fetch('/api/stats')
     .then(response => response.json())
     .then(data => {
+      console.log('统计API响应:', data); // 调试信息
       if (data.success) {
-        elements.totalCount.textContent = data.stats.bookmarks_count;
-        elements.domainCount.textContent = data.stats.domains_count;
-        elements.categoryCount.textContent = data.stats.categories_count;
+        // 兼容不同的数据格式
+        const stats = data.stats || data.data || {};
+        elements.totalCount.textContent = stats.bookmarks_count || stats.total_bookmarks || 0;
+        elements.domainCount.textContent = stats.domains_count || stats.total_domains || 0;
+        elements.categoryCount.textContent = stats.categories_count || stats.total_categories || 0;
+      } else {
+        console.warn('统计信息加载失败:', data);
+        // 设置默认值
+        elements.totalCount.textContent = '0';
+        elements.domainCount.textContent = '0';
+        elements.categoryCount.textContent = '0';
       }
     })
     .catch(error => {
       console.error('加载统计信息失败:', error);
+      // 设置默认值
+      elements.totalCount.textContent = '0';
+      elements.domainCount.textContent = '0';
+      elements.categoryCount.textContent = '0';
     });
 }
 
