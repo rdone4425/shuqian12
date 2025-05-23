@@ -102,14 +102,29 @@ async function getSettings(env) {
       throw error; // 重新抛出其他错误
     }
 
-    const settings = await env.DB.prepare('SELECT key, value, description, type FROM settings ORDER BY key').all();
+    // 先检查表结构，看是否有description和type字段
+    let hasExtendedFields = false;
+    try {
+      await env.DB.prepare('SELECT description, type FROM settings LIMIT 1').first();
+      hasExtendedFields = true;
+    } catch (error) {
+      // 如果字段不存在，使用简化查询
+      hasExtendedFields = false;
+    }
+
+    let settings;
+    if (hasExtendedFields) {
+      settings = await env.DB.prepare('SELECT key, value, description, type FROM settings ORDER BY key').all();
+    } else {
+      settings = await env.DB.prepare('SELECT key, value FROM settings ORDER BY key').all();
+    }
 
     const settingsObj = {};
     (settings.results || []).forEach(setting => {
       settingsObj[setting.key] = {
         value: setting.value,
-        description: setting.description || '',
-        type: setting.type || 'string'
+        description: setting.description || getDefaultDescription(setting.key),
+        type: setting.type || getDefaultType(setting.key)
       };
     });
 
@@ -214,4 +229,28 @@ async function updateSettings(env, request) {
       },
     });
   }
+}
+
+// 获取默认描述
+function getDefaultDescription(key) {
+  const descriptions = {
+    'items_per_page': '每页显示的书签数量',
+    'last_backup': '最后备份时间',
+    'theme': '默认主题',
+    'version': '系统版本',
+    'site_title': '网站标题'
+  };
+  return descriptions[key] || '';
+}
+
+// 获取默认类型
+function getDefaultType(key) {
+  const types = {
+    'items_per_page': 'number',
+    'last_backup': 'datetime',
+    'theme': 'string',
+    'version': 'string',
+    'site_title': 'string'
+  };
+  return types[key] || 'string';
 }
