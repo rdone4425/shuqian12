@@ -170,7 +170,10 @@ export async function onRequest(context) {
       { table: 'bookmarks', column: 'category_id', name: 'idx_bookmarks_category' },
       { table: 'bookmarks', column: 'created_at', name: 'idx_bookmarks_created' },
       { table: 'categories', column: 'parent_id', name: 'idx_categories_parent' },
-      { table: 'sync_logs', column: 'created_at', name: 'idx_sync_logs_created' }
+      { table: 'sync_logs', column: 'created_at', name: 'idx_sync_logs_created' },
+      { table: 'sync_logs', column: 'type', name: 'idx_sync_logs_type' },
+      { table: 'sync_logs', column: 'level', name: 'idx_sync_logs_level' },
+      { table: 'domains', column: 'domain', name: 'idx_domains_domain' }
     ];
 
     for (const index of requiredIndexes) {

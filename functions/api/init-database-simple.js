@@ -1,106 +1,63 @@
 /**
- * 初始化数据库表结构
+ * 简化版数据库初始化 API
+ * 专门为 D1 数据库优化，避免复杂的 SQL 语法
  */
+
+import { CORS_HEADERS } from '../utils/cors.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
 
-  // 处理CORS预检请求
+  // 处理 CORS 预检请求
   if (request.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Max-Age': '86400'
-      }
-    });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   // 只允许 POST 请求
   if (request.method !== 'POST') {
     return new Response(JSON.stringify({
       success: false,
-      message: '只支持 POST 请求',
-      allowed_methods: ['POST'],
-      current_method: request.method
+      message: '只支持 POST 请求'
     }), {
       status: 405,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Allow': 'POST, OPTIONS'
-      }
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
   }
 
   try {
-    const db = env.DB;
-
-    // 检查是否绑定了D1数据库
-    if (!db) {
+    // 检查数据库绑定
+    if (!env.DB) {
       return new Response(JSON.stringify({
         success: false,
-        message: '未绑定D1数据库',
-        error_type: 'no_database_binding',
+        message: '数据库未绑定，请检查 D1 数据库配置',
         instructions: [
-          '请先在Cloudflare Pages项目中绑定D1数据库：',
-          '1. 登录Cloudflare Dashboard',
-          '2. 进入Pages项目设置',
-          '3. 在"Functions"标签页中找到"Bindings"',
-          '4. 添加D1数据库绑定，变量名设为"DB"',
-          '5. 保存设置并重新部署项目'
-        ]
-      }), {
-        status: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
-      });
-    }
-
-    // 测试数据库连接
-    try {
-      await db.prepare('SELECT 1').first();
-    } catch (connectionError) {
-      return new Response(JSON.stringify({
-        success: false,
-        message: 'D1数据库连接失败',
-        error_type: 'connection_failed',
-        error_details: connectionError.message,
-        instructions: [
-          '数据库已绑定但无法连接，可能的原因：',
-          '1. D1数据库实例不存在或已删除',
-          '2. 网络连接问题',
-          '3. 权限配置问题',
-          '请检查Cloudflare Dashboard中的D1数据库状态'
+          '1. 登录 Cloudflare Dashboard',
+          '2. 进入 Pages 项目设置',
+          '3. 在 Functions 标签页中找到 Bindings',
+          '4. 添加 D1 数据库绑定，变量名设为 "DB"',
+          '5. 保存设置并重新部署'
         ]
       }), {
         status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
+    const db = env.DB;
     const results = [];
 
     // 1. 创建分类表
     try {
-      await db.exec(`
+      await db.prepare(`
         CREATE TABLE IF NOT EXISTS categories (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           name TEXT NOT NULL,
           parent_id INTEGER,
           description TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (parent_id) REFERENCES categories(id)
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
-      `);
+      `).run();
       results.push('✅ 分类表创建成功');
     } catch (error) {
       results.push('❌ 分类表创建失败: ' + error.message);
@@ -108,7 +65,7 @@ export async function onRequest(context) {
 
     // 2. 创建书签表
     try {
-      await db.exec(`
+      await db.prepare(`
         CREATE TABLE IF NOT EXISTS bookmarks (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           title TEXT NOT NULL,
@@ -120,18 +77,17 @@ export async function onRequest(context) {
           icon_url TEXT,
           description TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (category_id) REFERENCES categories(id)
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
-      `);
+      `).run();
       results.push('✅ 书签表创建成功');
     } catch (error) {
       results.push('❌ 书签表创建失败: ' + error.message);
     }
 
-    // 3. 创建域名表（用于统计）
+    // 3. 创建域名表
     try {
-      await db.exec(`
+      await db.prepare(`
         CREATE TABLE IF NOT EXISTS domains (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           domain TEXT NOT NULL,
@@ -139,7 +95,7 @@ export async function onRequest(context) {
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
-      `);
+      `).run();
       results.push('✅ 域名表创建成功');
     } catch (error) {
       results.push('❌ 域名表创建失败: ' + error.message);
@@ -147,7 +103,7 @@ export async function onRequest(context) {
 
     // 4. 创建设置表
     try {
-      await db.exec(`
+      await db.prepare(`
         CREATE TABLE IF NOT EXISTS settings (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           key TEXT NOT NULL,
@@ -156,7 +112,7 @@ export async function onRequest(context) {
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
-      `);
+      `).run();
       results.push('✅ 设置表创建成功');
     } catch (error) {
       results.push('❌ 设置表创建失败: ' + error.message);
@@ -164,7 +120,7 @@ export async function onRequest(context) {
 
     // 5. 创建同步日志表
     try {
-      await db.exec(`
+      await db.prepare(`
         CREATE TABLE IF NOT EXISTS sync_logs (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           type TEXT NOT NULL DEFAULT 'system',
@@ -175,55 +131,28 @@ export async function onRequest(context) {
           status TEXT DEFAULT 'success',
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
-      `);
+      `).run();
       results.push('✅ 同步日志表创建成功');
     } catch (error) {
       results.push('❌ 同步日志表创建失败: ' + error.message);
     }
 
-    // 6. 创建索引
+    // 6. 创建索引（分别创建，避免批量执行问题）
     const indexes = [
-      {
-        name: 'idx_bookmarks_domain',
-        sql: 'CREATE INDEX IF NOT EXISTS idx_bookmarks_domain ON bookmarks(domain)'
-      },
-      {
-        name: 'idx_bookmarks_category',
-        sql: 'CREATE INDEX IF NOT EXISTS idx_bookmarks_category ON bookmarks(category_id)'
-      },
-      {
-        name: 'idx_bookmarks_created',
-        sql: 'CREATE INDEX IF NOT EXISTS idx_bookmarks_created ON bookmarks(created_at)'
-      },
-      {
-        name: 'idx_categories_parent',
-        sql: 'CREATE INDEX IF NOT EXISTS idx_categories_parent ON categories(parent_id)'
-      },
-      {
-        name: 'idx_sync_logs_created',
-        sql: 'CREATE INDEX IF NOT EXISTS idx_sync_logs_created ON sync_logs(created_at)'
-      },
-      {
-        name: 'idx_sync_logs_type',
-        sql: 'CREATE INDEX IF NOT EXISTS idx_sync_logs_type ON sync_logs(type)'
-      },
-      {
-        name: 'idx_sync_logs_level',
-        sql: 'CREATE INDEX IF NOT EXISTS idx_sync_logs_level ON sync_logs(level)'
-      },
-      {
-        name: 'idx_domains_domain',
-        sql: 'CREATE UNIQUE INDEX IF NOT EXISTS idx_domains_domain ON domains(domain)'
-      },
-      {
-        name: 'idx_settings_key',
-        sql: 'CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_key ON settings(key)'
-      }
+      { name: 'idx_bookmarks_domain', sql: 'CREATE INDEX IF NOT EXISTS idx_bookmarks_domain ON bookmarks(domain)' },
+      { name: 'idx_bookmarks_category', sql: 'CREATE INDEX IF NOT EXISTS idx_bookmarks_category ON bookmarks(category_id)' },
+      { name: 'idx_bookmarks_created', sql: 'CREATE INDEX IF NOT EXISTS idx_bookmarks_created ON bookmarks(created_at)' },
+      { name: 'idx_categories_parent', sql: 'CREATE INDEX IF NOT EXISTS idx_categories_parent ON categories(parent_id)' },
+      { name: 'idx_sync_logs_created', sql: 'CREATE INDEX IF NOT EXISTS idx_sync_logs_created ON sync_logs(created_at)' },
+      { name: 'idx_sync_logs_type', sql: 'CREATE INDEX IF NOT EXISTS idx_sync_logs_type ON sync_logs(type)' },
+      { name: 'idx_sync_logs_level', sql: 'CREATE INDEX IF NOT EXISTS idx_sync_logs_level ON sync_logs(level)' },
+      { name: 'idx_domains_domain', sql: 'CREATE UNIQUE INDEX IF NOT EXISTS idx_domains_domain ON domains(domain)' },
+      { name: 'idx_settings_key', sql: 'CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_key ON settings(key)' }
     ];
 
     for (const index of indexes) {
       try {
-        await db.exec(index.sql);
+        await db.prepare(index.sql).run();
         results.push(`✅ 索引 ${index.name} 创建成功`);
       } catch (error) {
         results.push(`❌ 索引 ${index.name} 创建失败: ${error.message}`);
@@ -302,11 +231,7 @@ export async function onRequest(context) {
       results: results,
       timestamp: new Date().toISOString()
     }), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      }
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
@@ -318,10 +243,7 @@ export async function onRequest(context) {
       error: error.toString()
     }), {
       status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      }
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
   }
 }

@@ -228,9 +228,24 @@ const AdminView = {
             <div class="db-card">
               <h3><i class="fas fa-magic"></i> 数据库初始化</h3>
               <p>创建书签系统所需的所有数据表和索引</p>
-              <button @click="initDatabase" class="btn btn-success" :disabled="dbLoading">
-                <i class="fas fa-play"></i>
-                初始化数据库
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button @click="initDatabase" class="btn btn-success" :disabled="dbLoading">
+                  <i class="fas fa-play"></i>
+                  标准初始化
+                </button>
+                <button @click="initDatabaseSimple" class="btn btn-info" :disabled="dbLoading">
+                  <i class="fas fa-rocket"></i>
+                  简化初始化
+                </button>
+              </div>
+            </div>
+
+            <div class="db-card">
+              <h3><i class="fas fa-sync-alt"></i> 数据库升级</h3>
+              <p>升级现有数据库结构到最新版本</p>
+              <button @click="upgradeDatabase" class="btn btn-warning" :disabled="dbLoading">
+                <i class="fas fa-sync-alt"></i>
+                升级数据库
               </button>
             </div>
 
@@ -741,6 +756,104 @@ const AdminView = {
       }
     };
 
+    // 简化初始化数据库
+    const initDatabaseSimple = async () => {
+      if (!confirm('确定要使用简化方式初始化数据库吗？\n\n这是专为 D1 数据库优化的初始化方式，兼容性更好。')) {
+        return;
+      }
+
+      try {
+        dbLoading.value = true;
+        const response = await fetch('/api/init-database-simple', { method: 'POST' });
+        const data = await response.json();
+
+        if (data.success) {
+          // 显示详细的初始化结果
+          let message = '数据库简化初始化完成！\n\n';
+          if (data.results && data.results.length > 0) {
+            message += '执行结果:\n';
+            data.results.forEach(result => {
+              message += `${result}\n`;
+            });
+          }
+          message += `\n初始化时间: ${data.timestamp || new Date().toLocaleString()}`;
+
+          alert(message);
+
+          // 重新检查状态并加载数据
+          await checkDatabaseSilently();
+
+          // 如果当前在相关标签页，重新加载数据
+          if (activeTab.value === 'bookmarks') {
+            await loadAdminBookmarks();
+          } else if (activeTab.value === 'categories') {
+            await loadCategories();
+          } else if (activeTab.value === 'settings') {
+            await loadAdminStats();
+          }
+        } else {
+          let errorMessage = '数据库简化初始化失败: ' + data.message;
+          if (data.instructions && data.instructions.length > 0) {
+            errorMessage += '\n\n说明:\n' + data.instructions.join('\n');
+          }
+          alert(errorMessage);
+        }
+      } catch (error) {
+        console.error('简化初始化数据库失败:', error);
+        alert('简化初始化数据库失败: ' + error.message);
+      } finally {
+        dbLoading.value = false;
+      }
+    };
+
+    // 升级数据库
+    const upgradeDatabase = async () => {
+      if (!confirm('确定要升级数据库吗？这将更新数据库结构到最新版本。\n\n注意：升级过程中会备份现有数据，但建议先手动备份重要数据。')) {
+        return;
+      }
+
+      try {
+        dbLoading.value = true;
+        const response = await fetch('/api/upgrade-database', { method: 'POST' });
+        const data = await response.json();
+
+        if (data.success) {
+          // 显示详细的升级结果
+          let message = '数据库升级完成！\n\n';
+          if (data.results && data.results.length > 0) {
+            message += '升级结果:\n';
+            data.results.forEach(result => {
+              message += `${result}\n`;
+            });
+          }
+          message += `\n升级时间: ${data.timestamp || new Date().toLocaleString()}`;
+
+          alert(message);
+
+          // 重新检查状态并加载数据
+          await checkDatabaseSilently();
+
+          // 如果当前在相关标签页，重新加载数据
+          if (activeTab.value === 'bookmarks') {
+            await loadAdminBookmarks();
+          } else if (activeTab.value === 'categories') {
+            await loadCategories();
+          } else if (activeTab.value === 'logs') {
+            await loadLogs();
+          } else if (activeTab.value === 'settings') {
+            await loadAdminStats();
+          }
+        } else {
+          alert('数据库升级失败: ' + data.message);
+        }
+      } catch (error) {
+        console.error('升级数据库失败:', error);
+        alert('升级数据库失败: ' + error.message);
+      } finally {
+        dbLoading.value = false;
+      }
+    };
+
     // 导出数据
     const exportData = async () => {
       try {
@@ -1129,6 +1242,8 @@ const AdminView = {
       checkDatabase,
       checkDatabaseSilently,
       initDatabase,
+      initDatabaseSimple,
+      upgradeDatabase,
       exportData,
       importData,
       saveSettings,
