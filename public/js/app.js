@@ -210,10 +210,15 @@ async function loadBookmarks(page = 1) {
     const response = await fetch(`/api/bookmarks?${params}`);
     const data = await response.json();
 
+    console.log('书签API响应:', data); // 调试信息
+
     if (data.success && data.bookmarks) {
       state.bookmarks = data.bookmarks || [];
       state.currentPage = page;
       state.totalPages = Math.ceil((data.total || 0) / state.itemsPerPage);
+
+      console.log('加载的书签数量:', state.bookmarks.length); // 调试信息
+      console.log('总页数:', state.totalPages); // 调试信息
 
       // 更新分页信息
       updatePagination();
@@ -225,6 +230,8 @@ async function loadBookmarks(page = 1) {
       state.bookmarks = [];
       state.currentPage = 1;
       state.totalPages = 0;
+
+      console.warn('书签加载失败:', data); // 调试信息
 
       // 显示错误信息
       const errorMessage = data.message || data.error || '加载书签失败';
@@ -250,6 +257,8 @@ async function loadBookmarks(page = 1) {
 
 // 渲染书签列表
 function renderBookmarks() {
+  console.log('开始渲染书签，数量:', state.bookmarks.length); // 调试信息
+
   // 清空书签列表
   elements.bookmarksList.innerHTML = '';
 
@@ -260,6 +269,7 @@ function renderBookmarks() {
   }
 
   if (state.bookmarks.length === 0) {
+    console.log('没有书签数据，显示空状态'); // 调试信息
     elements.bookmarksList.innerHTML = `
       <div class="loading-state">
         <i class="fas fa-search"></i>

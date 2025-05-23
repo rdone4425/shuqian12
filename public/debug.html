@@ -77,7 +77,7 @@
   <div class="container">
     <h1>🔍 数据库状态检查</h1>
     <p>这个页面帮助你诊断数据库连接和配置问题。</p>
-    
+
     <div class="status-item status-info">
       <h3>📋 检查步骤</h3>
       <ol>
@@ -110,13 +110,13 @@
 
     async function runAllChecks() {
       clearResults();
-      
+
       // 检查1: API基本连接
       addResult('🔄 检查1: API基本连接', '<span class="loading">检查中...</span>');
       try {
         const response = await fetch('/api/status');
         const data = await response.json();
-        
+
         if (response.ok) {
           addResult('✅ 检查1: API基本连接', `
             <p><strong>状态:</strong> ${response.status} ${response.statusText}</p>
@@ -146,7 +146,7 @@
       try {
         const response = await fetch('/api/bookmarks?limit=1');
         const data = await response.json();
-        
+
         if (data.success) {
           addResult('✅ 检查2: 数据库绑定状态', `
             <p><strong>数据库已正确绑定</strong></p>
@@ -179,7 +179,7 @@
       try {
         const response = await fetch('/api/settings');
         const data = await response.json();
-        
+
         if (data.success) {
           addResult('✅ 检查3: 设置API状态', `
             <p><strong>设置API正常</strong></p>
@@ -202,7 +202,7 @@
       try {
         const response = await fetch('/api/stats');
         const data = await response.json();
-        
+
         if (data.success) {
           addResult('✅ 检查4: 统计API状态', `
             <p><strong>统计API正常</strong></p>
@@ -220,6 +220,31 @@
         `, 'error');
       }
 
+      // 检查5: 书签数据
+      addResult('🔄 检查5: 书签数据', '<span class="loading">检查中...</span>');
+      try {
+        const response = await fetch('/api/bookmarks?limit=5');
+        const data = await response.json();
+
+        if (data.success) {
+          addResult('✅ 检查5: 书签数据', `
+            <p><strong>书签API正常</strong></p>
+            <p><strong>书签数量:</strong> ${data.total || 0}</p>
+            <p><strong>返回数据:</strong></p>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          `, data.total > 0 ? 'success' : 'warning');
+        } else {
+          addResult('⚠️ 检查5: 书签数据', `
+            <p><strong>书签API有问题:</strong> ${data.message}</p>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          `, 'warning');
+        }
+      } catch (error) {
+        addResult('❌ 检查5: 书签数据', `
+          <p><strong>书签API失败:</strong> ${error.message}</p>
+        `, 'error');
+      }
+
       addResult('🎉 检查完成', `
         <p>所有检查已完成。请根据上述结果进行相应的修复操作。</p>
         <p><strong>常见解决方案：</strong></p>
@@ -227,6 +252,7 @@
           <li>如果数据库未绑定：在Cloudflare Pages设置中绑定D1数据库</li>
           <li>如果需要初始化：访问 <a href="/admin.html">管理后台</a> 进行初始化</li>
           <li>如果API错误：检查Functions部署状态</li>
+          <li>如果书签数量为0：需要先添加一些书签数据</li>
         </ul>
       `, 'info');
     }
