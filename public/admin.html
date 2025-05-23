@@ -105,11 +105,16 @@
       <nav class="nav-tabs">
         <button class="nav-tab active" data-tab="bookmarks">书签</button>
         <button class="nav-tab" data-tab="categories">分类</button>
+        <button class="nav-tab" data-tab="database">数据库</button>
         <button class="nav-tab" data-tab="settings">设置</button>
       </nav>
     </div>
     <div class="header-right">
       <div class="status-badge" id="db-status">检查中...</div>
+      <a href="database.html" class="btn">
+        <i class="fas fa-database"></i>
+        数据库管理
+      </a>
       <a href="index.html" class="btn">
         <i class="fas fa-home"></i>
         前台
@@ -222,11 +227,103 @@
       </div>
     </div>
 
+    <!-- 数据库管理 -->
+    <div class="tab-content" id="database-tab">
+      <div class="page-header">
+        <h1 class="page-title">数据库管理</h1>
+        <p class="page-description">管理和维护书签系统的数据库结构</p>
+      </div>
+
+      <!-- 数据库状态概览 -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-number" id="db-tables-count">--</div>
+          <div class="stat-label">数据表</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="db-indexes-count">--</div>
+          <div class="stat-label">索引</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="db-health-percent">--</div>
+          <div class="stat-label">健康度</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="db-connection-status">--</div>
+          <div class="stat-label">连接状态</div>
+        </div>
+      </div>
+
+      <!-- 数据库管理功能 -->
+      <div class="settings-grid">
+        <div class="settings-card">
+          <h3><i class="fas fa-search"></i> 数据库检查</h3>
+          <p>检查D1数据库绑定状态和表结构完整性</p>
+          <div class="form-group">
+            <button type="button" class="btn btn-primary" onclick="checkDatabaseStructure()">
+              <i class="fas fa-search"></i>
+              检查数据库
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h3><i class="fas fa-magic"></i> 数据库初始化</h3>
+          <p>创建书签系统所需的所有数据表和索引</p>
+          <div class="form-group">
+            <button type="button" class="btn btn-success" onclick="initializeDatabase()">
+              <i class="fas fa-play"></i>
+              初始化数据库
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h3><i class="fas fa-puzzle-piece"></i> 插件表管理</h3>
+          <p>管理Chrome插件相关的数据表结构</p>
+          <div class="form-group">
+            <button type="button" class="btn btn-info" onclick="checkPluginTables()">
+              <i class="fas fa-search"></i>
+              检查插件表
+            </button>
+          </div>
+          <div class="form-group">
+            <button type="button" class="btn btn-success" onclick="createPluginTables()">
+              <i class="fas fa-plus"></i>
+              创建插件表
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h3><i class="fas fa-table"></i> 自定义表创建</h3>
+          <p>为插件或扩展功能创建自定义的数据库表</p>
+          <div class="form-group">
+            <button type="button" class="btn btn-warning" onclick="showCreatePluginTableDialog()">
+              <i class="fas fa-plus-circle"></i>
+              创建新表
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h3><i class="fas fa-external-link-alt"></i> 高级管理</h3>
+          <p>访问完整的数据库管理功能</p>
+          <div class="form-group">
+            <a href="database.html" class="btn btn-primary">
+              <i class="fas fa-database"></i>
+              打开数据库管理页面
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 系统设置 -->
     <div class="tab-content" id="settings-tab">
       <div class="page-header">
         <h1 class="page-title">系统设置</h1>
-        <p class="page-description">数据库管理和系统配置</p>
+        <p class="page-description">系统配置和数据操作</p>
       </div>
 
       <!-- 统计信息 -->
@@ -251,33 +348,6 @@
 
       <!-- 设置选项 -->
       <div class="settings-grid">
-        <div class="settings-card">
-          <h3>数据库管理</h3>
-          <div class="form-group">
-            <button class="btn btn-secondary" id="check-db-btn" onclick="checkDatabaseStructure()">
-              <i class="fas fa-database"></i>
-              检查数据库
-            </button>
-          </div>
-          <div class="form-group">
-            <button class="btn btn-primary" id="init-db-btn" onclick="initializeDatabase()">
-              <i class="fas fa-magic"></i>
-              初始化数据库
-            </button>
-          </div>
-          <div class="form-group">
-            <button type="button" class="btn btn-info" onclick="checkPluginTables()">
-              <i class="fas fa-puzzle-piece"></i>
-              检查插件表
-            </button>
-          </div>
-          <div class="form-group">
-            <button type="button" class="btn btn-success" onclick="createPluginTables()">
-              <i class="fas fa-plus"></i>
-              创建插件表
-            </button>
-          </div>
-        </div>
 
         <div class="settings-card">
           <h3>数据操作</h3>
