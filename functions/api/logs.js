@@ -3,7 +3,7 @@
  * 处理系统日志的查询、清空等操作
  */
 
-import { corsHeaders } from '../utils/cors.js';
+import { CORS_HEADERS } from '../utils/cors.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -12,7 +12,7 @@ export async function onRequest(context) {
 
   // 处理 CORS 预检请求
   if (method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   try {
@@ -23,7 +23,7 @@ export async function onRequest(context) {
         message: '数据库未绑定，请检查 D1 数据库配置'
       }), {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
@@ -39,7 +39,7 @@ export async function onRequest(context) {
         message: '不支持的请求方法'
       }), {
         status: 405,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
   } catch (error) {
@@ -49,7 +49,7 @@ export async function onRequest(context) {
       message: '服务器内部错误: ' + error.message
     }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
   }
 }
@@ -67,12 +67,12 @@ async function handleGetLogs(db, url) {
     // 构建查询条件
     let whereClause = '';
     let queryParams = [];
-    
+
     if (type) {
       whereClause += ' WHERE type = ?';
       queryParams.push(type);
     }
-    
+
     if (time) {
       const timeCondition = getTimeCondition(time);
       if (timeCondition) {
@@ -89,13 +89,13 @@ async function handleGetLogs(db, url) {
 
     // 查询日志列表
     const logsQuery = `
-      SELECT id, type, level, message, details, created_at 
-      FROM sync_logs 
+      SELECT id, type, level, message, details, created_at
+      FROM sync_logs
       ${whereClause}
-      ORDER BY created_at DESC 
+      ORDER BY created_at DESC
       LIMIT ? OFFSET ?
     `;
-    
+
     const logsResult = await db.prepare(logsQuery)
       .bind(...queryParams, limit, offset)
       .all();
@@ -116,7 +116,7 @@ async function handleGetLogs(db, url) {
       limit: limit,
       totalPages: Math.ceil(total / limit)
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
@@ -126,7 +126,7 @@ async function handleGetLogs(db, url) {
       message: '获取日志失败: ' + error.message
     }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
   }
 }
@@ -146,7 +146,7 @@ async function handleClearLogs(db) {
       success: true,
       message: '日志清空成功'
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
@@ -156,7 +156,7 @@ async function handleClearLogs(db) {
       message: '清空日志失败: ' + error.message
     }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
   }
 }
@@ -173,7 +173,7 @@ async function handleAddLog(db, request) {
         message: '缺少必要参数: type, level, message'
       }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
       });
     }
 
@@ -191,7 +191,7 @@ async function handleAddLog(db, request) {
       success: true,
       message: '日志添加成功'
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
@@ -201,7 +201,7 @@ async function handleAddLog(db, request) {
       message: '添加日志失败: ' + error.message
     }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
   }
 }
@@ -209,7 +209,7 @@ async function handleAddLog(db, request) {
 // 获取时间条件
 function getTimeCondition(timeFilter) {
   const now = new Date();
-  
+
   switch (timeFilter) {
     case 'today':
       const today = now.toISOString().split('T')[0];
@@ -217,21 +217,21 @@ function getTimeCondition(timeFilter) {
         clause: "date(created_at) = ?",
         params: [today]
       };
-      
+
     case 'week':
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       return {
         clause: "created_at >= ?",
         params: [weekAgo.toISOString()]
       };
-      
+
     case 'month':
       const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       return {
         clause: "created_at >= ?",
         params: [monthAgo.toISOString()]
       };
-      
+
     default:
       return null;
   }
