@@ -84,6 +84,33 @@ https://your-pages-project.pages.dev/api/bookmarks
 - 🛠️ 管理后台：`https://your-pages-project.pages.dev/admin.html`
 - 🔍 API状态：`https://your-pages-project.pages.dev/api/status`
 
+## 🔧 故障排除
+
+### Chrome插件显示API错误
+
+如果Chrome插件显示"API响应错误: 500"，请按以下步骤排查：
+
+1. **检查D1数据库绑定**
+   - 访问Cloudflare Pages项目设置
+   - 确认已绑定D1数据库（变量名：`DB`）
+
+2. **检查数据库初始化**
+   - 访问管理后台：`/admin.html`
+   - 查看"系统设置"标签页的数据库状态
+   - 如显示"需要初始化"，点击"一键初始化"按钮
+
+3. **检查API状态**
+   - 访问：`/api/status`
+   - 查看返回的状态信息：
+     - `ready` - 系统正常
+     - `needs_setup` - 需要初始化数据库
+     - `error` - 数据库连接失败
+
+4. **常见错误及解决方案**
+   - **"数据库未绑定"** → 在Pages设置中绑定D1数据库
+   - **"数据库表未初始化"** → 执行数据库初始化
+   - **"API响应错误: 500"** → 检查上述步骤
+
 ## 🔌 Chrome插件集成
 
 ### 支持的同步操作

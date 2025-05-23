@@ -44,25 +44,25 @@ async function init() {
   try {
     // 检查数据库连接
     await checkDatabaseStatus();
-    
+
     // 加载设置
     await loadSettings();
-    
+
     // 加载分类
     await loadCategories();
-    
+
     // 加载域名
     await loadDomains();
-    
+
     // 加载书签
     await loadBookmarks();
-    
+
     // 更新统计信息
     updateStats();
-    
+
     // 设置事件监听器
     setupEventListeners();
-    
+
     // 加载主题
     loadTheme();
   } catch (error) {
@@ -76,19 +76,26 @@ async function checkDatabaseStatus() {
   try {
     const response = await fetch('/api/status');
     const data = await response.json();
-    
-    if (data.status === 'connected') {
+
+    if (data.status === 'ready' || data.status === 'connected') {
       elements.dbStatus.textContent = '已连接';
       elements.dbStatus.style.color = 'var(--success-color)';
+    } else if (data.status === 'needs_setup') {
+      elements.dbStatus.textContent = '需要初始化';
+      elements.dbStatus.style.color = 'var(--warning-color)';
+      console.warn('数据库需要初始化，请访问管理后台进行初始化');
+      // 不抛出错误，允许继续加载其他组件
     } else {
       elements.dbStatus.textContent = '连接失败';
       elements.dbStatus.style.color = 'var(--danger-color)';
-      throw new Error('数据库连接失败');
+      console.error('数据库状态:', data);
+      // 不抛出错误，允许继续尝试加载
     }
   } catch (error) {
     elements.dbStatus.textContent = '连接失败';
     elements.dbStatus.style.color = 'var(--danger-color)';
-    throw new Error('数据库连接失败');
+    console.error('检查数据库状态失败:', error);
+    // 不抛出错误，允许继续尝试加载
   }
 }
 
@@ -97,7 +104,7 @@ async function loadSettings() {
   try {
     const response = await fetch('/api/settings');
     const data = await response.json();
-    
+
     if (data.success) {
       state.itemsPerPage = parseInt(data.settings.items_per_page) || 20;
     }
@@ -111,13 +118,13 @@ async function loadCategories() {
   try {
     const response = await fetch('/api/categories');
     const data = await response.json();
-    
+
     if (data.success) {
       state.categories = data.categories;
-      
+
       // 清空分类选择器
       elements.categoryFilter.innerHTML = '<option value="">全部</option>';
-      
+
       // 添加主分类
       const mainCategories = state.categories.filter(category => !category.parent_id);
       mainCategories.forEach(category => {
@@ -136,9 +143,9 @@ async function loadCategories() {
 function loadSubcategories(parentId) {
   // 清空子分类选择器
   elements.subcategoryFilter.innerHTML = '<option value="">全部</option>';
-  
+
   if (!parentId) return;
-  
+
   // 添加子分类
   const subcategories = state.categories.filter(category => category.parent_id === parseInt(parentId));
   subcategories.forEach(category => {
@@ -154,13 +161,13 @@ async function loadDomains() {
   try {
     const response = await fetch('/api/domains');
     const data = await response.json();
-    
+
     if (data.success) {
       state.domains = data.domains;
-      
+
       // 清空域名选择器
       elements.domainFilter.innerHTML = '<option value="">全部</option>';
-      
+
       // 添加域名
       state.domains.forEach(domain => {
         const option = document.createElement('option');
@@ -178,7 +185,7 @@ async function loadDomains() {
 async function loadBookmarks(page = 1) {
   try {
     elements.bookmarksList.innerHTML = '<div class="loading">加载中...</div>';
-    
+
     const params = new URLSearchParams({
       page: page,
       limit: state.itemsPerPage,
@@ -187,26 +194,45 @@ async function loadBookmarks(page = 1) {
       subcategory: state.filters.subcategory,
       search: state.filters.search
     });
-    
+
     const response = await fetch(`/api/bookmarks?${params}`);
     const data = await response.json();
-    
-    if (data.success) {
-      state.bookmarks = data.bookmarks;
+
+    if (data.success && data.bookmarks) {
+      state.bookmarks = data.bookmarks || [];
       state.currentPage = page;
-      state.totalPages = Math.ceil(data.total / state.itemsPerPage);
-      
+      state.totalPages = Math.ceil((data.total || 0) / state.itemsPerPage);
+
       // 更新分页信息
       updatePagination();
-      
+
       // 渲染书签列表
       renderBookmarks();
     } else {
-      showError('加载书签失败');
+      // 确保bookmarks是空数组，避免undefined错误
+      state.bookmarks = [];
+      state.currentPage = 1;
+      state.totalPages = 0;
+
+      // 显示错误信息
+      const errorMessage = data.message || data.error || '加载书签失败';
+      showError(errorMessage);
+
+      // 更新分页信息
+      updatePagination();
     }
   } catch (error) {
     console.error('加载书签失败:', error);
-    showError('加载书签失败');
+
+    // 确保bookmarks是空数组，避免undefined错误
+    state.bookmarks = [];
+    state.currentPage = 1;
+    state.totalPages = 0;
+
+    showError('加载书签失败: ' + error.message);
+
+    // 更新分页信息
+    updatePagination();
   }
 }
 
@@ -214,47 +240,53 @@ async function loadBookmarks(page = 1) {
 function renderBookmarks() {
   // 清空书签列表
   elements.bookmarksList.innerHTML = '';
-  
+
+  // 安全检查：确保bookmarks是数组
+  if (!Array.isArray(state.bookmarks)) {
+    console.warn('state.bookmarks不是数组:', state.bookmarks);
+    state.bookmarks = [];
+  }
+
   if (state.bookmarks.length === 0) {
     elements.bookmarksList.innerHTML = '<div class="loading">没有找到书签</div>';
     return;
   }
-  
+
   // 获取书签模板
   const template = document.getElementById('bookmark-template');
-  
+
   // 渲染每个书签
   state.bookmarks.forEach(bookmark => {
     const bookmarkElement = document.importNode(template.content, true);
-    
+
     // 设置书签数据
     const title = bookmarkElement.querySelector('.bookmark-title a');
     title.href = bookmark.url;
     title.textContent = bookmark.title;
-    
+
     const url = bookmarkElement.querySelector('.bookmark-url');
     url.textContent = bookmark.url;
-    
+
     const domain = bookmarkElement.querySelector('.bookmark-domain');
     domain.innerHTML = `<i class="fas fa-globe"></i> ${bookmark.domain}`;
-    
+
     // 查找分类名称
     let categoryName = '未分类';
     if (bookmark.category_id) {
       const category = state.categories.find(cat => cat.id === bookmark.category_id);
       if (category) categoryName = category.name;
     }
-    
+
     const category = bookmarkElement.querySelector('.bookmark-category');
     category.innerHTML = `<i class="fas fa-folder"></i> ${categoryName}`;
-    
+
     const date = bookmarkElement.querySelector('.bookmark-date');
     date.innerHTML = `<i class="fas fa-calendar"></i> ${formatDate(bookmark.created_at)}`;
-    
+
     const icon = bookmarkElement.querySelector('.bookmark-icon img');
     icon.src = bookmark.icon_url || `https://www.google.com/s2/favicons?domain=${bookmark.domain}`;
     icon.alt = `${bookmark.domain} 图标`;
-    
+
     // 添加到书签列表
     elements.bookmarksList.appendChild(bookmarkElement);
   });
@@ -263,14 +295,14 @@ function renderBookmarks() {
 // 更新分页信息
 function updatePagination() {
   elements.pageInfo.textContent = `第 ${state.currentPage} 页，共 ${state.totalPages} 页`;
-  
+
   // 更新上一页按钮状态
   if (state.currentPage <= 1) {
     elements.prevPage.disabled = true;
   } else {
     elements.prevPage.disabled = false;
   }
-  
+
   // 更新下一页按钮状态
   if (state.currentPage >= state.totalPages) {
     elements.nextPage.disabled = true;
@@ -301,7 +333,7 @@ function setupEventListeners() {
   elements.categoryFilter.addEventListener('change', () => {
     loadSubcategories(elements.categoryFilter.value);
   });
-  
+
   // 应用筛选器
   elements.applyFilters.addEventListener('click', () => {
     state.filters.domain = elements.domainFilter.value;
@@ -310,46 +342,46 @@ function setupEventListeners() {
     state.filters.search = elements.searchInput.value;
     loadBookmarks(1);
   });
-  
+
   // 回车键应用筛选
   elements.searchInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       elements.applyFilters.click();
     }
   });
-  
+
   // 分页按钮
   elements.prevPage.addEventListener('click', () => {
     if (state.currentPage > 1) {
       loadBookmarks(state.currentPage - 1);
     }
   });
-  
+
   elements.nextPage.addEventListener('click', () => {
     if (state.currentPage < state.totalPages) {
       loadBookmarks(state.currentPage + 1);
     }
   });
-  
+
   // 主题切换
   elements.themeToggle.addEventListener('click', toggleTheme);
-  
+
   // 帮助对话框
   elements.showHelp.addEventListener('click', () => {
     elements.helpDialog.style.display = 'flex';
   });
-  
+
   elements.closeHelp.addEventListener('click', () => {
     elements.helpDialog.style.display = 'none';
   });
-  
+
   // 点击对话框外部关闭对话框
   elements.helpDialog.addEventListener('click', (e) => {
     if (e.target === elements.helpDialog) {
       elements.helpDialog.style.display = 'none';
     }
   });
-  
+
   // 快捷键
   document.addEventListener('keydown', (e) => {
     // Alt + D: 聚焦域名筛选器
@@ -357,25 +389,25 @@ function setupEventListeners() {
       elements.domainFilter.focus();
       e.preventDefault();
     }
-    
+
     // Alt + C: 聚焦分类筛选器
     if (e.altKey && e.key === 'c') {
       elements.categoryFilter.focus();
       e.preventDefault();
     }
-    
+
     // Alt + S: 聚焦搜索框
     if (e.altKey && e.key === 's') {
       elements.searchInput.focus();
       e.preventDefault();
     }
-    
+
     // Alt + T: 切换主题
     if (e.altKey && e.key === 't') {
       toggleTheme();
       e.preventDefault();
     }
-    
+
     // Alt + ←: 上一页
     if (e.altKey && e.key === 'ArrowLeft') {
       if (!elements.prevPage.disabled) {
@@ -383,7 +415,7 @@ function setupEventListeners() {
       }
       e.preventDefault();
     }
-    
+
     // Alt + →: 下一页
     if (e.altKey && e.key === 'ArrowRight') {
       if (!elements.nextPage.disabled) {
@@ -397,7 +429,7 @@ function setupEventListeners() {
 // 切换主题
 function toggleTheme() {
   const isDark = document.body.getAttribute('data-theme') === 'dark';
-  
+
   if (isDark) {
     document.body.removeAttribute('data-theme');
     elements.themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
@@ -412,7 +444,7 @@ function toggleTheme() {
 // 加载主题
 function loadTheme() {
   const savedTheme = localStorage.getItem('theme');
-  
+
   if (savedTheme === 'dark') {
     document.body.setAttribute('data-theme', 'dark');
     elements.themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
@@ -434,8 +466,42 @@ function formatDate(dateString) {
 
 // 显示错误信息
 function showError(message) {
-  elements.bookmarksList.innerHTML = `<div class="loading" style="color: var(--danger-color);">${message}</div>`;
+  let errorHtml = `<div class="loading" style="color: var(--danger-color);">${message}</div>`;
+
+  // 如果是数据库相关错误，显示更友好的提示
+  if (message.includes('数据库表未初始化') || message.includes('no such table')) {
+    errorHtml = `
+      <div class="error-container" style="text-align: center; padding: 40px; color: var(--text-color);">
+        <div style="font-size: 48px; margin-bottom: 20px;">🗄️</div>
+        <h3 style="color: var(--warning-color); margin-bottom: 15px;">数据库需要初始化</h3>
+        <p style="margin-bottom: 20px; color: var(--text-secondary);">
+          系统检测到数据库表尚未创建，请先进行初始化操作。
+        </p>
+        <a href="/admin.html" style="
+          display: inline-block;
+          padding: 12px 24px;
+          background: var(--primary-color);
+          color: white;
+          text-decoration: none;
+          border-radius: 6px;
+          font-weight: 500;
+        ">前往管理后台初始化</a>
+      </div>
+    `;
+  } else if (message.includes('数据库未绑定')) {
+    errorHtml = `
+      <div class="error-container" style="text-align: center; padding: 40px; color: var(--text-color);">
+        <div style="font-size: 48px; margin-bottom: 20px;">🔗</div>
+        <h3 style="color: var(--danger-color); margin-bottom: 15px;">数据库未绑定</h3>
+        <p style="margin-bottom: 20px; color: var(--text-secondary);">
+          请在Cloudflare Pages项目设置中绑定D1数据库（变量名：DB）。
+        </p>
+      </div>
+    `;
+  }
+
+  elements.bookmarksList.innerHTML = errorHtml;
 }
 
 // 初始化应用
-document.addEventListener('DOMContentLoaded', init); 
+document.addEventListener('DOMContentLoaded', init);

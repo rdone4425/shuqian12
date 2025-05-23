@@ -80,6 +80,41 @@ export async function onRequest(context) {
 // 获取书签列表
 async function getBookmarks(env, searchParams, isChrome = false) {
   try {
+    // 检查数据库连接
+    if (!env.DB) {
+      return new Response(JSON.stringify({
+        success: false,
+        message: '数据库未绑定',
+        error: '请在Cloudflare Pages项目设置中绑定D1数据库（变量名：DB）'
+      }), {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      });
+    }
+
+    // 检查表是否存在
+    try {
+      await env.DB.prepare('SELECT 1 FROM bookmarks LIMIT 1').first();
+    } catch (error) {
+      if (error.message.includes('no such table')) {
+        return new Response(JSON.stringify({
+          success: false,
+          message: '数据库表未初始化',
+          error: '请先在管理后台执行数据库初始化操作'
+        }), {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+          },
+        });
+      }
+      throw error; // 重新抛出其他错误
+    }
+
     const page = parseInt(searchParams.get('page')) || 1;
     const limit = parseInt(searchParams.get('limit')) || 20;
     const offset = (page - 1) * limit;
