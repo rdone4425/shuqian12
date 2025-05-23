@@ -11,7 +11,7 @@ const corsHeaders = {
 
 export async function onRequest(context) {
   const { request, env } = context;
-  
+
   // 处理 OPTIONS 请求
   if (request.method === 'OPTIONS') {
     return new Response(null, {
@@ -19,7 +19,7 @@ export async function onRequest(context) {
       headers: corsHeaders,
     });
   }
-  
+
   try {
     switch (request.method) {
       case 'GET':
@@ -56,13 +56,17 @@ export async function onRequest(context) {
 // 获取设置
 async function getSettings(env) {
   try {
-    const settings = await env.DB.prepare('SELECT key, value FROM settings').all();
-    
+    const settings = await env.DB.prepare('SELECT key, value, description, type FROM settings ORDER BY key').all();
+
     const settingsObj = {};
     (settings.results || []).forEach(setting => {
-      settingsObj[setting.key] = setting.value;
+      settingsObj[setting.key] = {
+        value: setting.value,
+        description: setting.description || '',
+        type: setting.type || 'string'
+      };
     });
-    
+
     return new Response(JSON.stringify({
       success: true,
       settings: settingsObj
@@ -92,11 +96,11 @@ async function getSettings(env) {
 async function updateSettings(env, request) {
   try {
     const data = await request.json();
-    
+
     // 验证设置项
     const validSettings = ['items_per_page', 'last_backup'];
     const updates = [];
-    
+
     for (const [key, value] of Object.entries(data)) {
       if (validSettings.includes(key)) {
         // 验证特定设置的值
@@ -115,11 +119,11 @@ async function updateSettings(env, request) {
             });
           }
         }
-        
+
         updates.push({ key, value: String(value) });
       }
     }
-    
+
     if (updates.length === 0) {
       return new Response(JSON.stringify({
         success: false,
@@ -132,15 +136,15 @@ async function updateSettings(env, request) {
         },
       });
     }
-    
+
     // 更新设置
     for (const update of updates) {
       await env.DB.prepare(`
-        INSERT OR REPLACE INTO settings (key, value, updated_at)
-        VALUES (?, ?, datetime('now'))
-      `).bind(update.key, update.value).run();
+        UPDATE settings SET value = ?, updated_at = datetime('now')
+        WHERE key = ?
+      `).bind(update.value, update.key).run();
     }
-    
+
     return new Response(JSON.stringify({
       success: true,
       message: '设置更新成功'

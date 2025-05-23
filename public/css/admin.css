@@ -399,21 +399,68 @@
   margin-top: 20px;
 }
 
+/* 数据库初始化状态 */
+.db-init-status {
+  margin: 10px 0;
+  padding: 15px;
+  border-radius: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+
+.status-indicator.success {
+  color: var(--success-color);
+}
+
+.status-indicator.warning {
+  color: var(--warning-color);
+}
+
+.status-indicator.error {
+  color: var(--danger-color);
+}
+
+.status-details {
+  margin-top: 10px;
+  padding: 10px;
+  background: var(--bg-color);
+  border-radius: 4px;
+  font-size: 0.9em;
+  color: var(--text-secondary);
+}
+
+.status-details ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.status-details li {
+  margin: 5px 0;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .admin-panel {
     flex-direction: column;
   }
-  
+
   .admin-sidebar {
     width: 100%;
   }
-  
+
   .categories-container {
     flex-direction: column;
   }
-  
+
   .button-group {
     flex-wrap: wrap;
   }
-} 
+}

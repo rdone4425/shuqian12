@@ -52,6 +52,9 @@ const adminElements = {
   selectedCategory: document.getElementById('selected-category'),
 
   // 系统设置
+  dbInitStatus: document.getElementById('db-init-status'),
+  checkDbStatus: document.getElementById('check-db-status'),
+  initDatabase: document.getElementById('init-database'),
   exportData: document.getElementById('export-data'),
   importData: document.getElementById('import-data'),
   backupDb: document.getElementById('backup-db'),
@@ -109,6 +112,9 @@ async function initAdmin() {
   try {
     // 检查数据库连接
     await checkDatabaseStatus();
+
+    // 检查数据库初始化状态
+    await checkDatabaseInitStatus();
 
     // 加载设置
     await loadSettings();
@@ -362,6 +368,8 @@ function setupAdminEventListeners() {
   });
 
   // 设置
+  adminElements.checkDbStatus.addEventListener('click', checkDatabaseInitStatus);
+  adminElements.initDatabase.addEventListener('click', initializeDatabase);
   adminElements.saveSettings.addEventListener('click', saveSettings);
   adminElements.exportData.addEventListener('click', exportData);
   adminElements.importData.addEventListener('click', importData);
@@ -1026,6 +1034,150 @@ async function backupDatabase() {
   } catch (error) {
     console.error('备份数据库失败:', error);
     alert('备份失败，请重试');
+  }
+}
+
+// 检查数据库初始化状态
+async function checkDatabaseInitStatus() {
+  try {
+    const response = await fetch('/api/setup');
+    const data = await response.json();
+
+    updateDatabaseStatusDisplay(data);
+  } catch (error) {
+    console.error('检查数据库初始化状态失败:', error);
+    adminElements.dbInitStatus.innerHTML = `
+      <div class="status-indicator error">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span>检查失败: ${error.message}</span>
+      </div>
+    `;
+  }
+}
+
+// 更新数据库状态显示
+function updateDatabaseStatusDisplay(data) {
+  if (!data.success) {
+    if (data.status === 'no_binding') {
+      adminElements.dbInitStatus.innerHTML = `
+        <div class="status-indicator warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span>未绑定D1数据库</span>
+        </div>
+        <div class="status-details">
+          <p>请在Cloudflare Pages项目设置中绑定D1数据库（变量名：DB）</p>
+        </div>
+      `;
+      adminElements.initDatabase.style.display = 'none';
+    } else if (data.status === 'connection_error') {
+      adminElements.dbInitStatus.innerHTML = `
+        <div class="status-indicator error">
+          <i class="fas fa-times-circle"></i>
+          <span>数据库连接失败</span>
+        </div>
+        <div class="status-details">
+          <p>${data.message}</p>
+        </div>
+      `;
+      adminElements.initDatabase.style.display = 'none';
+    } else {
+      adminElements.dbInitStatus.innerHTML = `
+        <div class="status-indicator error">
+          <i class="fas fa-times-circle"></i>
+          <span>检查失败</span>
+        </div>
+        <div class="status-details">
+          <p>${data.message}</p>
+        </div>
+      `;
+      adminElements.initDatabase.style.display = 'none';
+    }
+  } else {
+    if (data.status === 'ready') {
+      adminElements.dbInitStatus.innerHTML = `
+        <div class="status-indicator success">
+          <i class="fas fa-check-circle"></i>
+          <span>数据库已完全初始化</span>
+        </div>
+        <div class="status-details">
+          <p>书签: ${data.details.data.bookmarks} | 分类: ${data.details.data.categories} | 设置: ${data.details.data.settings}</p>
+        </div>
+      `;
+      adminElements.initDatabase.style.display = 'none';
+    } else if (data.status === 'needs_setup') {
+      adminElements.dbInitStatus.innerHTML = `
+        <div class="status-indicator warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span>需要初始化表结构</span>
+        </div>
+        <div class="status-details">
+          <p>缺少表: ${data.details.missing_tables.join(', ')}</p>
+        </div>
+      `;
+      adminElements.initDatabase.style.display = 'inline-block';
+    }
+  }
+}
+
+// 初始化数据库
+async function initializeDatabase() {
+  try {
+    adminElements.initDatabase.disabled = true;
+    adminElements.initDatabase.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 初始化中...';
+
+    const response = await fetch('/api/setup', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      adminElements.dbInitStatus.innerHTML = `
+        <div class="status-indicator success">
+          <i class="fas fa-check-circle"></i>
+          <span>数据库初始化成功</span>
+        </div>
+        <div class="status-details">
+          <ul>
+            ${data.details.map(detail => `<li>${detail}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+      adminElements.initDatabase.style.display = 'none';
+
+      // 重新加载数据
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } else {
+      adminElements.dbInitStatus.innerHTML = `
+        <div class="status-indicator error">
+          <i class="fas fa-times-circle"></i>
+          <span>初始化失败</span>
+        </div>
+        <div class="status-details">
+          <p>${data.message}</p>
+        </div>
+      `;
+      adminElements.initDatabase.disabled = false;
+      adminElements.initDatabase.innerHTML = '<i class="fas fa-database"></i> 一键初始化';
+    }
+  } catch (error) {
+    console.error('初始化数据库失败:', error);
+    adminElements.dbInitStatus.innerHTML = `
+      <div class="status-indicator error">
+        <i class="fas fa-times-circle"></i>
+        <span>初始化失败</span>
+      </div>
+      <div class="status-details">
+        <p>${error.message}</p>
+      </div>
+    `;
+    adminElements.initDatabase.disabled = false;
+    adminElements.initDatabase.innerHTML = '<i class="fas fa-database"></i> 一键初始化';
   }
 }
 

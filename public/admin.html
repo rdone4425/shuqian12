@@ -37,7 +37,7 @@
           </div>
         </div>
       </div>
-      
+
       <div class="admin-content">
         <!-- 书签管理 -->
         <div class="tab-content active" id="bookmarks-tab">
@@ -48,7 +48,7 @@
               <button id="search-btn"><i class="fas fa-search"></i></button>
             </div>
           </div>
-          
+
           <div class="filters compact">
             <div class="filter-group">
               <label for="admin-domain-filter">域名:</label>
@@ -70,7 +70,7 @@
             </div>
             <button id="admin-apply-filters" class="admin-btn"><i class="fas fa-filter"></i> 筛选</button>
           </div>
-          
+
           <div class="bookmarks-table-container">
             <table class="bookmarks-table">
               <thead>
@@ -91,21 +91,21 @@
               </tbody>
             </table>
           </div>
-          
+
           <div class="pagination admin-pagination">
             <button id="admin-prev-page" disabled><i class="fas fa-chevron-left"></i> 上一页</button>
             <span id="admin-page-info">第 1 页</span>
             <button id="admin-next-page">下一页 <i class="fas fa-chevron-right"></i></button>
           </div>
         </div>
-        
+
         <!-- 分类管理 -->
         <div class="tab-content" id="categories-tab">
           <div class="content-header">
             <h2>分类管理</h2>
             <button id="add-category-btn" class="admin-btn primary-btn"><i class="fas fa-plus"></i> 添加分类</button>
           </div>
-          
+
           <div class="categories-container">
             <div class="category-list">
               <h3>主分类</h3>
@@ -114,7 +114,7 @@
                 <li class="loading-item">加载中...</li>
               </ul>
             </div>
-            
+
             <div class="subcategory-list">
               <h3>子分类 <span id="selected-category">（请选择主分类）</span></h3>
               <ul id="subcategories">
@@ -124,14 +124,28 @@
             </div>
           </div>
         </div>
-        
+
         <!-- 系统设置 -->
         <div class="tab-content" id="settings-tab">
           <div class="content-header">
             <h2>系统设置</h2>
           </div>
-          
+
           <div class="settings-form">
+            <div class="form-group">
+              <label>数据库初始化</label>
+              <div class="db-init-status" id="db-init-status">
+                <div class="status-indicator">
+                  <i class="fas fa-spinner fa-spin"></i>
+                  <span>检查数据库状态...</span>
+                </div>
+              </div>
+              <div class="button-group">
+                <button id="check-db-status" class="admin-btn"><i class="fas fa-search"></i> 检查状态</button>
+                <button id="init-database" class="admin-btn primary-btn" style="display: none;"><i class="fas fa-database"></i> 一键初始化</button>
+              </div>
+            </div>
+
             <div class="form-group">
               <label>数据库管理</label>
               <div class="button-group">
@@ -140,12 +154,12 @@
                 <button id="backup-db" class="admin-btn primary-btn"><i class="fas fa-save"></i> 备份数据库</button>
               </div>
             </div>
-            
+
             <div class="form-group">
               <label for="items-per-page">每页显示数量</label>
               <input type="number" id="items-per-page" min="10" max="100" value="20">
             </div>
-            
+
             <div class="form-group">
               <label>数据统计</label>
               <div id="db-stats" class="db-stats">
@@ -167,7 +181,7 @@
                 </div>
               </div>
             </div>
-            
+
             <div class="form-group">
               <button id="save-settings" class="admin-btn primary-btn"><i class="fas fa-save"></i> 保存设置</button>
             </div>
@@ -187,31 +201,31 @@
       <div class="modal-body">
         <form id="bookmark-form">
           <input type="hidden" id="bookmark-id">
-          
+
           <div class="form-group">
             <label for="bookmark-title">标题 <span class="required">*</span></label>
             <input type="text" id="bookmark-title" required>
           </div>
-          
+
           <div class="form-group">
             <label for="bookmark-url">URL <span class="required">*</span></label>
             <input type="url" id="bookmark-url" required>
           </div>
-          
+
           <div class="form-group">
             <label for="bookmark-category">分类</label>
             <select id="bookmark-category">
               <option value="">无分类</option>
             </select>
           </div>
-          
+
           <div class="form-group">
             <label for="bookmark-subcategory">子分类</label>
             <select id="bookmark-subcategory">
               <option value="">无子分类</option>
             </select>
           </div>
-          
+
           <div class="form-group">
             <label for="bookmark-icon">图标URL (可选)</label>
             <input type="url" id="bookmark-icon">
@@ -235,12 +249,12 @@
       <div class="modal-body">
         <form id="category-form">
           <input type="hidden" id="category-id">
-          
+
           <div class="form-group">
             <label for="category-name">分类名称 <span class="required">*</span></label>
             <input type="text" id="category-name" required>
           </div>
-          
+
           <div class="form-group">
             <label for="parent-category">父分类</label>
             <select id="parent-category">
@@ -315,4 +329,4 @@
 
   <script src="js/admin.js"></script>
 </body>
-</html> 
+</html>
