@@ -167,8 +167,11 @@ export async function onRequest(context) {
       await db.exec(`
         CREATE TABLE IF NOT EXISTS sync_logs (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
-          action TEXT NOT NULL,
+          type TEXT NOT NULL DEFAULT 'system',
+          level TEXT NOT NULL DEFAULT 'info',
+          message TEXT NOT NULL,
           details TEXT,
+          action TEXT,
           status TEXT DEFAULT 'success',
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
@@ -199,6 +202,14 @@ export async function onRequest(context) {
       {
         name: 'idx_sync_logs_created',
         sql: 'CREATE INDEX IF NOT EXISTS idx_sync_logs_created ON sync_logs(created_at)'
+      },
+      {
+        name: 'idx_sync_logs_type',
+        sql: 'CREATE INDEX IF NOT EXISTS idx_sync_logs_type ON sync_logs(type)'
+      },
+      {
+        name: 'idx_sync_logs_level',
+        sql: 'CREATE INDEX IF NOT EXISTS idx_sync_logs_level ON sync_logs(level)'
       },
       {
         name: 'idx_domains_domain',
@@ -267,9 +278,16 @@ export async function onRequest(context) {
     // 9. 记录初始化日志
     try {
       await db.prepare(`
-        INSERT INTO sync_logs (action, details, status)
-        VALUES (?, ?, ?)
-      `).bind('database_init', JSON.stringify(results), 'success').run();
+        INSERT INTO sync_logs (type, level, message, details, action, status)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind(
+        'database',
+        'success',
+        '数据库初始化完成',
+        JSON.stringify(results),
+        'database_init',
+        'success'
+      ).run();
     } catch (error) {
       console.error('记录初始化日志失败:', error);
     }
