@@ -8,31 +8,16 @@
 
 ### 1. 配置 Turso 数据库
 
-#### 步骤 1: 创建 Turso 数据库
-```bash
-# 安装 Turso CLI
-curl -sSfL https://get.tur.so/install.sh | bash
+⚠️ **重要提示**: 由于构建环境限制，Turso 功能需要在部署后手动启用。
 
-# 登录 Turso
-turso auth login
+详细设置步骤请参考：[Turso 设置指南](TURSO_SETUP.md)
 
-# 创建数据库
-turso db create bookmark-manager
-```
-
-#### 步骤 2: 获取连接信息
-```bash
-# 获取数据库 URL
-turso db show bookmark-manager --url
-
-# 创建认证令牌
-turso db tokens create bookmark-manager
-```
-
-#### 步骤 3: 配置环境变量
-在 Cloudflare Pages 项目设置中添加：
-- `TURSO_URL`: 数据库连接地址
-- `TURSO_AUTH_TOKEN`: 认证令牌
+#### 简要步骤：
+1. 部署项目到 Cloudflare Pages
+2. 创建 Turso 数据库并获取连接信息
+3. 在 Pages 设置中添加环境变量
+4. 启用代码中的 Turso 功能
+5. 重新部署
 
 ### 2. 使用数据库切换功能
 

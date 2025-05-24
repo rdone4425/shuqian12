@@ -3,8 +3,6 @@
  * 支持 D1 和 Turso 数据库切换
  */
 
-import { createClient } from '@libsql/client/web';
-
 // 数据库类型常量
 export const DATABASE_TYPES = {
   D1: 'd1',
@@ -15,14 +13,14 @@ export const DATABASE_TYPES = {
 async function getDatabaseConfig(env) {
   // 首先尝试从环境变量获取数据库类型设置
   let dbType = DATABASE_TYPES.D1; // 默认使用 D1
-  
+
   // 如果有 D1 数据库，尝试从设置表获取配置
   if (env.DB) {
     try {
       const setting = await env.DB.prepare(`
         SELECT value FROM settings WHERE key = 'database_type'
       `).first();
-      
+
       if (setting && setting.value) {
         dbType = setting.value;
       }
@@ -39,7 +37,7 @@ async function getDatabaseConfig(env) {
       instance: env.DB
     },
     turso: {
-      available: !!(env.TURSO_URL && env.TURSO_AUTH_TOKEN),
+      available: false, // 暂时禁用 Turso 以避免构建错误
       url: env.TURSO_URL,
       authToken: env.TURSO_AUTH_TOKEN
     }
@@ -78,27 +76,51 @@ function createD1Connection(config) {
 }
 
 // 创建 Turso 连接
-function createTursoConnection(config) {
-  const client = createClient({
-    url: config.url,
-    authToken: config.authToken
-  });
+async function createTursoConnection(config) {
+  try {
+    // 动态导入 Turso 客户端，使用 eval 避免构建时解析
+    const libsqlModule = await import(/* webpackIgnore: true */ '@libsql/client/web');
+    const { createClient } = libsqlModule;
 
-  return {
-    type: DATABASE_TYPES.TURSO,
-    instance: client,
-    prepare: (sql) => ({
-      bind: (...params) => ({
+    const client = createClient({
+      url: config.url,
+      authToken: config.authToken
+    });
+
+    return {
+      type: DATABASE_TYPES.TURSO,
+      instance: client,
+      prepare: (sql) => ({
+        bind: (...params) => ({
+          first: async () => {
+            const result = await client.execute({ sql, args: params });
+            return result.rows[0] || null;
+          },
+          all: async () => {
+            const result = await client.execute({ sql, args: params });
+            return { results: result.rows };
+          },
+          run: async () => {
+            const result = await client.execute({ sql, args: params });
+            return {
+              success: true,
+              meta: {
+                changes: result.rowsAffected,
+                last_row_id: result.lastInsertRowid
+              }
+            };
+          }
+        }),
         first: async () => {
-          const result = await client.execute({ sql, args: params });
+          const result = await client.execute(sql);
           return result.rows[0] || null;
         },
         all: async () => {
-          const result = await client.execute({ sql, args: params });
+          const result = await client.execute(sql);
           return { results: result.rows };
         },
         run: async () => {
-          const result = await client.execute({ sql, args: params });
+          const result = await client.execute(sql);
           return {
             success: true,
             meta: {
@@ -108,35 +130,19 @@ function createTursoConnection(config) {
           };
         }
       }),
-      first: async () => {
-        const result = await client.execute(sql);
-        return result.rows[0] || null;
-      },
-      all: async () => {
-        const result = await client.execute(sql);
-        return { results: result.rows };
-      },
-      run: async () => {
-        const result = await client.execute(sql);
-        return {
-          success: true,
-          meta: {
-            changes: result.rowsAffected,
-            last_row_id: result.lastInsertRowid
-          }
-        };
+      exec: async (sql) => {
+        return await client.execute(sql);
       }
-    }),
-    exec: async (sql) => {
-      return await client.execute(sql);
-    }
-  };
+    };
+  } catch (error) {
+    throw new Error(`创建 Turso 连接失败: ${error.message}`);
+  }
 }
 
 // 获取数据库状态信息
 export async function getDatabaseStatus(env) {
   const config = await getDatabaseConfig(env);
-  
+
   const status = {
     current_type: config.type,
     available_databases: {
@@ -166,6 +172,8 @@ export async function getDatabaseStatus(env) {
   // 测试 Turso 连接
   if (config.turso.available) {
     try {
+      const libsqlModule = await import(/* webpackIgnore: true */ '@libsql/client/web');
+      const { createClient } = libsqlModule;
       const client = createClient({
         url: config.turso.url,
         authToken: config.turso.authToken
@@ -188,18 +196,18 @@ export async function switchDatabaseType(env, newType) {
 
   // 验证新数据库类型是否可用
   const config = await getDatabaseConfig(env);
-  
+
   if (newType === DATABASE_TYPES.TURSO && !config.turso.available) {
     throw new Error('Turso 数据库配置不完整，无法切换');
   }
-  
+
   if (newType === DATABASE_TYPES.D1 && !config.d1.available) {
     throw new Error('D1 数据库未绑定，无法切换');
   }
 
   // 测试新数据库连接
   const testDb = await createDatabaseConnection(env, newType);
-  
+
   try {
     if (newType === DATABASE_TYPES.TURSO) {
       await testDb.instance.execute('SELECT 1');
