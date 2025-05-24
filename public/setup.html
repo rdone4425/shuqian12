@@ -221,6 +221,20 @@
         .checklist li.error::before {
             content: "❌";
         }
+
+        .warning-text {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #856404;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .progress-initial {
+            width: 33%;
+        }
     </style>
 </head>
 <body>
@@ -246,7 +260,7 @@
         </div>
 
         <div class="progress-bar">
-            <div class="progress-fill" id="progress-fill" style="width: 33%"></div>
+            <div class="progress-fill progress-initial" id="progress-fill"></div>
         </div>
 
         <div class="setup-content">
@@ -275,7 +289,7 @@
                     <p>系统将创建必要的数据表和初始数据。这个过程可能需要几分钟时间。</p>
                 </div>
 
-                <div class="log-output" id="init-log" style="display: none;"></div>
+                <div class="log-output hidden" id="init-log"></div>
 
                 <button class="setup-btn" onclick="initializeDatabase()">
                     <span id="init-btn-text">初始化数据库</span>
@@ -293,7 +307,7 @@
                     <h3>默认管理员账户</h3>
                     <p><strong>用户名:</strong> admin</p>
                     <p><strong>密码:</strong> admin123</p>
-                    <p style="margin-top: 10px; font-size: 0.9em;">
+                    <p class="warning-text">
                         ⚠️ 请立即登录并修改默认密码以确保安全
                     </p>
                 </div>
@@ -374,7 +388,7 @@
             const log = document.getElementById('init-log');
 
             btn.innerHTML = '<span class="loading"></span>初始化中...';
-            log.style.display = 'block';
+            log.classList.remove('hidden');
             log.textContent = '开始初始化数据库...\n';
 
             try {

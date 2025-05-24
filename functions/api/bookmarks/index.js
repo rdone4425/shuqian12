@@ -4,6 +4,7 @@
  */
 
 import { CORS_HEADERS } from '../../utils/cors.js';
+import { createCacheInstance, CACHE_STRATEGIES } from '../../utils/cache.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -27,10 +28,13 @@ export async function onRequest(context) {
       });
     }
 
+    // 创建缓存实例
+    const cache = createCacheInstance(env.CACHE);
+
     if (method === 'GET') {
-      return await handleGetBookmarks(env.DB, url);
+      return await handleGetBookmarks(env.DB, url, cache);
     } else if (method === 'POST') {
-      return await handleCreateBookmark(env.DB, request);
+      return await handleCreateBookmark(env.DB, request, cache);
     } else {
       return new Response(JSON.stringify({
         success: false,
@@ -53,7 +57,7 @@ export async function onRequest(context) {
 }
 
 // 获取书签列表
-async function handleGetBookmarks(db, url) {
+async function handleGetBookmarks(db, url, cache) {
   try {
     const params = url.searchParams;
     const page = parseInt(params.get('page')) || 1;
@@ -62,6 +66,23 @@ async function handleGetBookmarks(db, url) {
     const category = params.get('category') || '';
     const search = params.get('search') || '';
     const offset = (page - 1) * limit;
+
+    // 检查是否可以使用缓存
+    const cacheParams = { page, limit, domain, category, search };
+    const shouldCache = CACHE_STRATEGIES.BOOKMARKS_LIST.shouldCache(cacheParams);
+
+    if (shouldCache && cache) {
+      const cached = await cache.get('bookmarks_list', cacheParams);
+      if (cached) {
+        return new Response(JSON.stringify({
+          success: true,
+          ...cached,
+          timestamp: new Date().toISOString()
+        }), {
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+        });
+      }
+    }
 
     // 构建查询条件
     let whereClause = '';
@@ -104,14 +125,22 @@ async function handleGetBookmarks(db, url) {
 
     const bookmarks = bookmarksResult.results || [];
 
-    return new Response(JSON.stringify({
+    const responseData = {
       success: true,
       bookmarks: bookmarks,
       total: total,
       page: page,
       limit: limit,
-      totalPages: Math.ceil(total / limit)
-    }), {
+      totalPages: Math.ceil(total / limit),
+      timestamp: new Date().toISOString()
+    };
+
+    // 如果符合缓存条件，设置缓存
+    if (shouldCache && cache) {
+      await cache.set('bookmarks_list', responseData, cacheParams);
+    }
+
+    return new Response(JSON.stringify(responseData), {
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
 
@@ -128,7 +157,7 @@ async function handleGetBookmarks(db, url) {
 }
 
 // 创建新书签
-async function handleCreateBookmark(db, request) {
+async function handleCreateBookmark(db, request, cache) {
   try {
     // 读取并解析请求数据
     let data;
@@ -239,6 +268,11 @@ async function handleCreateBookmark(db, request) {
       INSERT OR REPLACE INTO domains (domain, bookmark_count)
       VALUES (?, (SELECT COUNT(*) FROM bookmarks WHERE domain = ?))
     `).bind(domain, domain).run();
+
+    // 清除相关缓存
+    if (cache) {
+      await cache.invalidateRelated(['bookmarks', 'stats']);
+    }
 
     return new Response(JSON.stringify({
       success: true,
