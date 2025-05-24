@@ -1,13 +1,13 @@
 /**
- * 系统统计 API - 重构版本
- * 使用基础类消除重复代码
+ * System Statistics API - Refactored version
+ * Using base classes to eliminate duplicate code
  */
 
 import { BaseAPIHandler, createAPIHandler } from '../../utils/api-base.js';
 import { queryFirst, queryAll } from '../../utils/database.js';
 
 /**
- * 系统统计 API 处理器
+ * System Statistics API Handler
  */
 class SystemStatsAPIHandler extends BaseAPIHandler {
   constructor() {
@@ -22,7 +22,7 @@ class SystemStatsAPIHandler extends BaseAPIHandler {
     const { db } = context;
 
     try {
-      // 并行获取基础统计信息
+      // Get basic statistics in parallel
       const [bookmarksCount, categoriesCount, domainsCount, usersCount] = await Promise.all([
         this.safeQuery(db, 'SELECT COUNT(*) as count FROM bookmarks'),
         this.safeQuery(db, 'SELECT COUNT(*) as count FROM categories'),
@@ -30,19 +30,19 @@ class SystemStatsAPIHandler extends BaseAPIHandler {
         this.safeQuery(db, 'SELECT COUNT(*) as count FROM users')
       ]);
 
-      // 基础统计
+      // Basic statistics
       const stats = {
         bookmarks_count: bookmarksCount?.count || 0,
         categories_count: categoriesCount?.count || 0,
         domains_count: domainsCount?.count || 0,
         users_count: usersCount?.count || 0,
-        // 兼容性别名
+        // Compatibility aliases
         total_bookmarks: bookmarksCount?.count || 0,
         total_categories: categoriesCount?.count || 0,
         total_domains: domainsCount?.count || 0
       };
 
-      // 并行获取详细统计信息
+      // Get detailed statistics in parallel
       const [recentBookmarks, topDomains, categoryUsage, latestBookmarks] = await Promise.all([
         this.safeQuery(db, `
           SELECT COUNT(*) as count
@@ -73,7 +73,7 @@ class SystemStatsAPIHandler extends BaseAPIHandler {
         `)
       ]);
 
-      // 添加详细统计
+      // Add detailed statistics
       stats.recent_bookmarks = recentBookmarks?.count || 0;
       stats.top_domains = (topDomains || []).map(item => ({
         domain: item.domain,
@@ -90,7 +90,7 @@ class SystemStatsAPIHandler extends BaseAPIHandler {
         created_at: item.created_at
       }));
 
-      // 数据库大小估算
+      // Database size estimation
       const totalRecords = stats.bookmarks_count + stats.categories_count;
       stats.estimated_size = {
         records: totalRecords,
@@ -99,34 +99,34 @@ class SystemStatsAPIHandler extends BaseAPIHandler {
 
       return this.success({
         stats,
-        data: stats // 兼容性别名
+        data: stats // Compatibility alias
       });
 
     } catch (error) {
-      return this.error('获取统计信息失败: ' + error.message, 500);
+      return this.error('Failed to get system statistics: ' + error.message, 500);
     }
   }
 
-  // 安全查询方法 - 单条记录
+  // Safe query method - single record
   async safeQuery(db, sql, params = []) {
     try {
       return await queryFirst(db, sql, params);
     } catch (error) {
-      console.warn('查询失败:', sql, error.message);
+      console.warn('Query failed:', sql, error.message);
       return null;
     }
   }
 
-  // 安全查询方法 - 多条记录
+  // Safe query method - multiple records
   async safeQueryAll(db, sql, params = []) {
     try {
       return await queryAll(db, sql, params);
     } catch (error) {
-      console.warn('查询失败:', sql, error.message);
+      console.warn('Query failed:', sql, error.message);
       return [];
     }
   }
 }
 
-// 导出处理器
+// Export handler
 export const onRequest = createAPIHandler(SystemStatsAPIHandler);

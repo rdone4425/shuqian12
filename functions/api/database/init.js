@@ -1,13 +1,13 @@
 /**
- * 数据库初始化 API - 重构版本
- * 使用基础类和模块化设计
+ * Database Initialization API - Refactored version
+ * Using base classes and modular design
  */
 
 import { BaseAPIHandler, createAPIHandler } from '../../utils/api-base.js';
 import { executeQuery, queryFirst } from '../../utils/database.js';
 
 /**
- * 数据库初始化处理器
+ * Database Initialization Handler
  */
 class DatabaseInitHandler extends BaseAPIHandler {
   constructor() {
@@ -23,45 +23,45 @@ class DatabaseInitHandler extends BaseAPIHandler {
     const results = [];
 
     try {
-      // 1. 创建所有表
+      // 1. Create all tables
       await this.createTables(db, results);
-      
-      // 2. 创建索引
+
+      // 2. Create indexes
       await this.createIndexes(db, results);
-      
-      // 3. 插入默认数据
+
+      // 3. Insert default data
       await this.insertDefaultData(db, results);
-      
-      // 4. 记录初始化日志
+
+      // 4. Log initialization
       await this.logInitialization(db, results);
 
       return this.success({
-        message: '数据库初始化完成',
+        message: 'Database initialization completed',
         results
       });
     } catch (error) {
-      return this.error('数据库初始化失败: ' + error.message, 500);
+      return this.error('Database initialization failed: ' + error.message, 500);
     }
   }
 
-  // 创建所有表
+  // Create all tables
   async createTables(db, results) {
     const tables = this.getTableDefinitions();
-    
+
     for (const [tableName, sql] of Object.entries(tables)) {
       try {
         await executeQuery(db, sql);
-        results.push(`✅ ${tableName}表创建成功`);
+        results.push(`✅ ${tableName} table created successfully`);
       } catch (error) {
-        results.push(`❌ ${tableName}表创建失败: ${error.message}`);
+        results.push(`❌ ${tableName} table creation failed: ${error.message}`);
       }
     }
   }
 
-  // 获取表定义
+  // Get table definitions
   getTableDefinitions() {
     return {
-      '分类': `
+      'Categories': `
         CREATE TABLE IF NOT EXISTS categories (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           name TEXT NOT NULL,
@@ -71,7 +71,7 @@ class DatabaseInitHandler extends BaseAPIHandler {
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
       `,
-      '书签': `
+      'Bookmarks': `
         CREATE TABLE IF NOT EXISTS bookmarks (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           title TEXT NOT NULL,
@@ -86,7 +86,7 @@ class DatabaseInitHandler extends BaseAPIHandler {
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
       `,
-      '域名': `
+      'Domains': `
         CREATE TABLE IF NOT EXISTS domains (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           domain TEXT NOT NULL,
@@ -95,7 +95,7 @@ class DatabaseInitHandler extends BaseAPIHandler {
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
       `,
-      '设置': `
+      'Settings': `
         CREATE TABLE IF NOT EXISTS settings (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           key TEXT NOT NULL,
@@ -105,7 +105,7 @@ class DatabaseInitHandler extends BaseAPIHandler {
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
       `,
-      '用户': `
+      'Users': `
         CREATE TABLE IF NOT EXISTS users (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           username TEXT NOT NULL UNIQUE,
@@ -119,7 +119,7 @@ class DatabaseInitHandler extends BaseAPIHandler {
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
       `,
-      '会话': `
+      'Sessions': `
         CREATE TABLE IF NOT EXISTS sessions (
           id TEXT PRIMARY KEY,
           user_id INTEGER NOT NULL,
@@ -128,7 +128,7 @@ class DatabaseInitHandler extends BaseAPIHandler {
           FOREIGN KEY (user_id) REFERENCES users (id)
         )
       `,
-      '同步日志': `
+      'Sync Logs': `
         CREATE TABLE IF NOT EXISTS sync_logs (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           type TEXT NOT NULL DEFAULT 'system',
@@ -143,7 +143,7 @@ class DatabaseInitHandler extends BaseAPIHandler {
     };
   }
 
-  // 创建索引
+  // Create indexes
   async createIndexes(db, results) {
     const indexes = [
       { name: 'idx_bookmarks_domain', sql: 'CREATE INDEX IF NOT EXISTS idx_bookmarks_domain ON bookmarks(domain)' },
@@ -163,36 +163,36 @@ class DatabaseInitHandler extends BaseAPIHandler {
     for (const index of indexes) {
       try {
         await executeQuery(db, index.sql);
-        results.push(`✅ 索引 ${index.name} 创建成功`);
+        results.push(`✅ Index ${index.name} created successfully`);
       } catch (error) {
-        results.push(`❌ 索引 ${index.name} 创建失败: ${error.message}`);
+        results.push(`❌ Index ${index.name} creation failed: ${error.message}`);
       }
     }
   }
 
-  // 插入默认数据
+  // Insert default data
   async insertDefaultData(db, results) {
-    // 插入默认设置
+    // Insert default settings
     await this.insertDefaultSettings(db, results);
-    
-    // 创建默认管理员账户
+
+    // Create default admin account
     await this.createDefaultAdmin(db, results);
-    
-    // 插入默认分类
+
+    // Insert default categories
     await this.insertDefaultCategories(db, results);
   }
 
-  // 插入默认设置
+  // Insert default settings
   async insertDefaultSettings(db, results) {
     const defaultSettings = [
-      { key: 'items_per_page', value: '20', description: '每页显示数量' },
-      { key: 'auto_sync', value: 'true', description: '自动同步' },
-      { key: 'sync_interval', value: '300', description: '同步间隔（秒）' },
-      { key: 'theme', value: 'light', description: '主题设置' },
-      { key: 'require_login', value: 'false', description: '是否需要登录访问管理后台' },
-      { key: 'session_timeout', value: '86400', description: '会话超时时间（秒）' },
-      { key: 'max_login_attempts', value: '5', description: '最大登录尝试次数' },
-      { key: 'lockout_duration', value: '1800', description: '账户锁定时间（秒）' }
+      { key: 'items_per_page', value: '20', description: 'Items per page' },
+      { key: 'auto_sync', value: 'true', description: 'Auto sync' },
+      { key: 'sync_interval', value: '300', description: 'Sync interval (seconds)' },
+      { key: 'theme', value: 'light', description: 'Theme setting' },
+      { key: 'require_login', value: 'false', description: 'Require login for admin access' },
+      { key: 'session_timeout', value: '86400', description: 'Session timeout (seconds)' },
+      { key: 'max_login_attempts', value: '5', description: 'Max login attempts' },
+      { key: 'lockout_duration', value: '1800', description: 'Account lockout duration (seconds)' }
     ];
 
     let insertedCount = 0;
@@ -201,7 +201,7 @@ class DatabaseInitHandler extends BaseAPIHandler {
     for (const setting of defaultSettings) {
       try {
         const existing = await queryFirst(db, 'SELECT key FROM settings WHERE key = ?', [setting.key]);
-        
+
         if (!existing) {
           await executeQuery(db, `
             INSERT INTO settings (key, value, description)
@@ -212,14 +212,14 @@ class DatabaseInitHandler extends BaseAPIHandler {
           skippedCount++;
         }
       } catch (error) {
-        console.error(`插入设置 ${setting.key} 失败:`, error);
+        console.error(`Failed to insert setting ${setting.key}:`, error);
       }
     }
 
-    results.push(`✅ 默认设置处理完成 (新增: ${insertedCount}, 跳过: ${skippedCount})`);
+    results.push(`✅ Default settings processed (added: ${insertedCount}, skipped: ${skippedCount})`);
   }
 
-  // 创建默认管理员账户
+  // Create default admin account
   async createDefaultAdmin(db, results) {
     try {
       const existingUsers = await queryFirst(db, 'SELECT COUNT(*) as count FROM users');
@@ -233,23 +233,23 @@ class DatabaseInitHandler extends BaseAPIHandler {
           VALUES (?, ?, ?, ?)
         `, ['admin', defaultPassword, 'admin@localhost', 'admin']);
 
-        results.push('✅ 默认管理员账户创建成功 (用户名: admin, 密码: admin123)');
+        results.push('✅ Default admin account created (username: admin, password: admin123)');
       } else {
-        results.push('ℹ️ 用户账户已存在，跳过默认账户创建');
+        results.push('ℹ️ User accounts exist, skipping default account creation');
       }
     } catch (error) {
-      results.push('❌ 默认管理员账户创建失败: ' + error.message);
+      results.push('❌ Default admin account creation failed: ' + error.message);
     }
   }
 
-  // 插入默认分类
+  // Insert default categories
   async insertDefaultCategories(db, results) {
     const defaultCategories = [
-      { name: '工作', description: '工作相关的书签' },
-      { name: '学习', description: '学习资源和教程' },
-      { name: '娱乐', description: '娱乐和休闲网站' },
-      { name: '工具', description: '实用工具和服务' },
-      { name: '新闻', description: '新闻和资讯网站' }
+      { name: 'Work', description: 'Work-related bookmarks' },
+      { name: 'Learning', description: 'Learning resources and tutorials' },
+      { name: 'Entertainment', description: 'Entertainment and leisure websites' },
+      { name: 'Tools', description: 'Useful tools and services' },
+      { name: 'News', description: 'News and information websites' }
     ];
 
     for (const category of defaultCategories) {
@@ -259,13 +259,13 @@ class DatabaseInitHandler extends BaseAPIHandler {
           VALUES (?, ?)
         `, [category.name, category.description]);
       } catch (error) {
-        // 忽略重复插入错误
+        // Ignore duplicate insertion errors
       }
     }
-    results.push('✅ 默认分类插入成功');
+    results.push('✅ Default categories inserted successfully');
   }
 
-  // 记录初始化日志
+  // Log initialization
   async logInitialization(db, results) {
     try {
       await executeQuery(db, `
@@ -274,16 +274,16 @@ class DatabaseInitHandler extends BaseAPIHandler {
       `, [
         'database',
         'success',
-        '数据库初始化完成',
+        'Database initialization completed',
         JSON.stringify(results),
         'database_init',
         'success'
       ]);
     } catch (error) {
-      console.error('记录初始化日志失败:', error);
+      console.error('Failed to log initialization:', error);
     }
   }
 }
 
-// 导出处理器
+// Export handler
 export const onRequest = createAPIHandler(DatabaseInitHandler);

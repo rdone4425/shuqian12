@@ -1,20 +1,20 @@
 /**
- * 分类管理 API - 重构版本
- * 使用基础类消除重复代码
+ * Categories API - Refactored version
+ * Using base classes to eliminate duplicate code
  */
 
 import { CRUDAPIHandler, createAPIHandler } from '../../utils/api-base.js';
 import { queryAll, queryFirst, executeQuery, recordExists } from '../../utils/database.js';
 
 /**
- * 分类 API 处理器
+ * Category API Handler
  */
 class CategoryAPIHandler extends CRUDAPIHandler {
   constructor() {
     super('categories', ['GET', 'POST', 'PUT', 'DELETE']);
   }
 
-  // 重写获取列表方法，添加书签数量统计
+  // Override getList method to add bookmark count statistics
   async getList(context) {
     const { db } = context;
 
@@ -38,36 +38,36 @@ class CategoryAPIHandler extends CRUDAPIHandler {
 
       return this.success({ categories });
     } catch (error) {
-      return this.error('获取分类列表失败: ' + error.message, 500);
+      return this.error('Failed to get categories: ' + error.message, 500);
     }
   }
 
-  // 重写创建方法，添加业务验证
+  // Override create method to add business validation
   async create(context) {
     const { db, body } = context;
 
-    // 验证必需字段
+    // Validate required fields
     const fieldError = this.validateFields(body, ['name']);
     if (fieldError) return fieldError;
 
     try {
       const { name, description, parent_id } = body;
 
-      // 检查名称重复
+      // Check for duplicate names
       const exists = await recordExists(db, 'categories', 'name', name);
       if (exists) {
-        return this.error('该名称的分类已存在', 409);
+        return this.error('Category with this name already exists', 409);
       }
 
-      // 验证父分类存在性
+      // Validate parent category exists
       if (parent_id) {
         const parentExists = await recordExists(db, 'categories', 'id', parent_id);
         if (!parentExists) {
-          return this.error('指定的父分类不存在', 400);
+          return this.error('Specified parent category does not exist', 400);
         }
       }
 
-      // 插入新分类
+      // Insert new category
       const result = await executeQuery(db, `
         INSERT INTO categories (name, description, parent_id)
         VALUES (?, ?, ?)
@@ -75,14 +75,14 @@ class CategoryAPIHandler extends CRUDAPIHandler {
 
       return this.success({
         id: result.meta.last_row_id,
-        message: '分类创建成功'
+        message: 'Category created successfully'
       });
     } catch (error) {
-      return this.error('创建分类失败: ' + error.message, 500);
+      return this.error('Failed to create category: ' + error.message, 500);
     }
   }
 
-  // 重写更新方法
+  // Override update method
   async update(context, id) {
     const { db, body } = context;
 
@@ -92,13 +92,13 @@ class CategoryAPIHandler extends CRUDAPIHandler {
       const params = [];
 
       if (name !== undefined) {
-        // 检查名称重复（排除自己）
+        // Check for duplicate names (excluding self)
         const existing = await queryFirst(db,
           'SELECT id FROM categories WHERE name = ? AND id != ?',
           [name, id]
         );
         if (existing) {
-          return this.error('该名称的分类已存在', 409);
+          return this.error('Category with this name already exists', 409);
         }
         updates.push('name = ?');
         params.push(name);
@@ -113,7 +113,7 @@ class CategoryAPIHandler extends CRUDAPIHandler {
         if (parent_id && parent_id !== id) {
           const parentExists = await recordExists(db, 'categories', 'id', parent_id);
           if (!parentExists) {
-            return this.error('指定的父分类不存在', 400);
+            return this.error('Specified parent category does not exist', 400);
           }
         }
         updates.push('parent_id = ?');
@@ -121,7 +121,7 @@ class CategoryAPIHandler extends CRUDAPIHandler {
       }
 
       if (updates.length === 0) {
-        return this.error('没有提供要更新的字段', 400);
+        return this.error('No fields provided for update', 400);
       }
 
       updates.push('updated_at = CURRENT_TIMESTAMP');
@@ -132,15 +132,15 @@ class CategoryAPIHandler extends CRUDAPIHandler {
       `, params);
 
       if (result.changes === 0) {
-        return this.error('分类不存在', 404);
+        return this.error('Category not found', 404);
       }
 
-      return this.success({ message: '分类更新成功' });
+      return this.success({ message: 'Category updated successfully' });
     } catch (error) {
-      return this.error('更新分类失败: ' + error.message, 500);
+      return this.error('Failed to update category: ' + error.message, 500);
     }
   }
 }
 
-// 导出处理器
+// Export handler
 export const onRequest = createAPIHandler(CategoryAPIHandler);
