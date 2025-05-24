@@ -223,11 +223,72 @@ export async function switchDatabaseType(env, newType) {
   await currentDb.prepare(`
     INSERT OR REPLACE INTO settings (key, value, description, updated_at)
     VALUES (?, ?, ?, datetime('now'))
-  `)。bind('database_type', newType, '当前使用的数据库类型').run();
+  `).bind('database_type', newType, '当前使用的数据库类型').run();
 
   return {
     success: true,
     message: `已切换到 ${newType} 数据库`,
     new_type: newType
+  };
+}
+
+// 数据迁移功能
+export async function migrateData(env, fromType, toType, tables = []) {
+  if (!Object.values(DATABASE_TYPES).includes(fromType) || !Object.values(DATABASE_TYPES).includes(toType)) {
+    throw new Error('不支持的数据库类型');
+  }
+
+  if (fromType === toType) {
+    throw new Error('源数据库和目标数据库不能相同');
+  }
+
+  const sourceDb = await createDatabaseConnection(env, fromType);
+  const targetDb = await createDatabaseConnection(env, toType);
+
+  const results = [];
+  const defaultTables = ['bookmarks', 'categories', 'settings', 'users', 'sessions', 'sync_logs'];
+  const tablesToMigrate = tables.length > 0 ? tables : defaultTables;
+
+  for (const tableName of tablesToMigrate) {
+    try {
+      // 获取源表数据
+      const sourceData = await sourceDb.prepare(`SELECT * FROM ${tableName}`).all();
+      const rows = sourceData.results || sourceData;
+
+      if (rows.length === 0) {
+        results.push(`${tableName}: 无数据需要迁移`);
+        continue;
+      }
+
+      // 获取表结构
+      const columns = Object.keys(rows[0]);
+      const placeholders = columns.map(() => '?').join(', ');
+      const columnNames = columns.join(', ');
+
+      // 插入到目标数据库
+      let successCount = 0;
+      for (const row of rows) {
+        try {
+          const values = columns.map(col => row[col]);
+          await targetDb.prepare(`
+            INSERT OR REPLACE INTO ${tableName} (${columnNames})
+            VALUES (${placeholders})
+          `).bind(...values).run();
+          successCount++;
+        } catch (error) {
+          console.error(`迁移 ${tableName} 表数据失败:`, error);
+        }
+      }
+
+      results.push(`${tableName}: ${successCount}/${rows.length} 条记录迁移成功`);
+    } catch (error) {
+      results.push(`${tableName}: 迁移失败 - ${error.message}`);
+    }
+  }
+
+  return {
+    success: true,
+    message: '数据迁移完成',
+    results: results
   };
 }
