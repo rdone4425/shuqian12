@@ -47,7 +47,7 @@ export async function onRequest(context) {
 async function handleGetDatabaseStatus(env) {
   try {
     const status = await getDatabaseStatus(env);
-    
+
     return new Response(JSON.stringify({
       success: true,
       status: status,
@@ -66,7 +66,8 @@ async function handleGetDatabaseStatus(env) {
           description: '边缘分布式 SQLite 数据库',
           available: status.available_databases.turso.available,
           connected: status.available_databases.turso.connected,
-          error: status.available_databases.turso.error
+          error: status.available_databases.turso.error || 'Turso 功能暂时不可用，正在修复兼容性问题',
+          note: 'Turso 集成正在开发中，请暂时使用 D1 数据库'
         }
       ],
       current_type: status.current_type
@@ -104,7 +105,7 @@ async function handleSwitchDatabase(env, request) {
 
     // 执行切换
     const result = await switchDatabaseType(env, database_type);
-    
+
     return new Response(JSON.stringify({
       success: true,
       message: result.message,

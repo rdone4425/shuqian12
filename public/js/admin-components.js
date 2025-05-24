@@ -833,7 +833,101 @@ const AdminView = {
                       </span>
                     </div>
                     <div class="db-description">{{ db.description }}</div>
-                    <div v-if="db.error" class="db-error">错误: {{ db.error }}</div>
+                    <div v-if="db.error" class="db-error">
+                      <i class="fas fa-exclamation-triangle"></i>
+                      {{ db.error }}
+                    </div>
+                    <div v-if="db.note" class="db-note">
+                      <i class="fas fa-info-circle"></i>
+                      {{ db.note }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 数据库表信息 -->
+            <div class="settings-card">
+              <h3><i class="fas fa-table"></i> 数据库表信息</h3>
+
+              <div class="table-controls">
+                <button @click="loadDatabaseTables()" class="btn btn-primary" :disabled="databaseTables.loading">
+                  <i class="fas fa-sync" :class="{ 'fa-spin': databaseTables.loading }"></i>
+                  刷新表信息
+                </button>
+
+                <div class="database-selector">
+                  <label>查看数据库:</label>
+                  <select @change="loadDatabaseTables($event.target.value)" :disabled="databaseTables.loading">
+                    <option value="">当前数据库</option>
+                    <option v-for="db in availableDatabases.filter(d => d.connected)" :key="db.type" :value="db.type">
+                      {{ db.name }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              <div v-if="databaseTables.loading" class="loading">
+                <i class="fas fa-spinner fa-spin"></i> 加载表信息中...
+              </div>
+
+              <div v-else-if="databaseTables.error" class="error-message">
+                <i class="fas fa-exclamation-triangle"></i>
+                {{ databaseTables.error }}
+              </div>
+
+              <div v-else-if="databaseTables.data" class="tables-info">
+                <div class="tables-summary">
+                  <p><strong>数据库类型:</strong> {{ getDatabaseTypeName(databaseTables.data.database_type) }}</p>
+                  <p><strong>表数量:</strong> {{ databaseTables.data.total_tables }}</p>
+                </div>
+
+                <div v-if="databaseTables.data.tables.length === 0" class="no-tables">
+                  <i class="fas fa-info-circle"></i>
+                  数据库中没有找到表，可能需要先初始化数据库。
+                </div>
+
+                <div v-else class="tables-list">
+                  <div v-for="table in databaseTables.data.tables" :key="table.name" class="table-item">
+                    <div class="table-header" @click="table.expanded = !table.expanded">
+                      <h4>
+                        <i class="fas fa-table"></i>
+                        {{ table.name }}
+                        <span class="record-count">({{ table.count }} 条记录)</span>
+                        <i class="fas fa-chevron-down" :class="{ 'rotated': table.expanded }"></i>
+                      </h4>
+                      <div v-if="table.error" class="error-message">
+                        错误: {{ table.error }}
+                      </div>
+                    </div>
+
+                    <div v-if="table.expanded && table.columns.length > 0" class="table-details">
+                      <div class="columns-list">
+                        <h5>字段信息:</h5>
+                        <div class="columns-grid">
+                          <div class="column-header">字段名</div>
+                          <div class="column-header">类型</div>
+                          <div class="column-header">可空</div>
+                          <div class="column-header">主键</div>
+                          <div class="column-header">默认值</div>
+
+                          <template v-for="column in table.columns" :key="column.name">
+                            <div class="column-cell">{{ column.name }}</div>
+                            <div class="column-cell">{{ column.type }}</div>
+                            <div class="column-cell">
+                              <span :class="column.nullable ? 'nullable' : 'not-nullable'">
+                                {{ column.nullable ? '是' : '否' }}
+                              </span>
+                            </div>
+                            <div class="column-cell">
+                              <span v-if="column.primary_key" class="primary-key">是</span>
+                              <span v-else>否</span>
+                            </div>
+                            <div class="column-cell">{{ column.default_value || '-' }}</div>
+                          </template>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1041,6 +1135,13 @@ const AdminView = {
     const availableDatabases = ref([]);
     const selectedDatabaseType = ref('d1');
     const databaseLoading = ref(false);
+
+    // 数据库表信息
+    const databaseTables = ref({
+      loading: false,
+      data: null,
+      error: null
+    });
 
     // 数据迁移相关
     const showMigrationDialog = ref(false);
@@ -2186,6 +2287,9 @@ const AdminView = {
       } else if (newTab === 'database') {
         // 静默检查数据库状态，不弹窗
         checkDatabaseSilently();
+        // 加载数据库状态和表信息
+        loadDatabaseStatus();
+        loadDatabaseTables();
       } else if (newTab === 'logs') {
         // 加载日志
         loadLogs();
@@ -2245,6 +2349,29 @@ const AdminView = {
         console.error('加载数据库状态失败:', error);
       } finally {
         databaseLoading.value = false;
+      }
+    };
+
+    // 加载数据库表信息
+    const loadDatabaseTables = async (dbType = null) => {
+      try {
+        databaseTables.value.loading = true;
+        databaseTables.value.error = null;
+
+        const url = dbType ? `/api/database/tables?type=${dbType}` : '/api/database/tables';
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.success) {
+          databaseTables.value.data = data;
+        } else {
+          databaseTables.value.error = data.message;
+        }
+      } catch (error) {
+        console.error('加载数据库表信息失败:', error);
+        databaseTables.value.error = '加载数据库表信息失败: ' + error.message;
+      } finally {
+        databaseTables.value.loading = false;
       }
     };
 
@@ -2433,6 +2560,7 @@ const AdminView = {
       availableDatabases,
       selectedDatabaseType,
       databaseLoading,
+      databaseTables,
       showMigrationDialog,
       migrationLoading,
       migrationSettings,
@@ -2442,6 +2570,7 @@ const AdminView = {
       getStatusClass,
       getStatusText,
       loadDatabaseStatus,
+      loadDatabaseTables,
       switchDatabase,
       toggleAllTables,
       startMigration,
