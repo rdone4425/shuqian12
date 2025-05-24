@@ -12,66 +12,115 @@
   <link rel="icon" href="img/favicon.ico" type="image/x-icon">
   <!-- 引入样式文件 -->
   <link rel="stylesheet" href="css/admin.css">
+
+  <!-- 引入组件 -->
+  <script src="js/components/loading-screen.js"></script>
+  <script src="js/components/top-nav.js"></script>
+  <script src="js/components/tab-nav.js"></script>
+  <script src="js/components/dashboard-tab.js"></script>
+  <script src="js/components/database-tab.js"></script>
+  <script src="js/components/bookmarks-tab.js"></script>
+  <script src="js/components/placeholder-tab.js"></script>
+  <script src="js/components/tab-content.js"></script>
+  <script src="js/components/admin-app.js"></script>
+  <script src="js/components/index.js"></script>
 </head>
 <body>
   <div id="app">
-    <div class="app-container">
-      <!-- 顶部导航 -->
-      <nav class="top-nav">
-        <div class="nav-brand">
-          <i class="fas fa-cog"></i>
-          <span>书签管理后台</span>
-        </div>
-        <div class="nav-actions">
-          <span v-if="currentUser" class="nav-btn user-info">
-            <i class="fas fa-user"></i>
-            {{ currentUser.username }}
-          </span>
-          <button v-if="currentUser" @click="logout" class="nav-btn logout-btn">
-            <i class="fas fa-sign-out-alt"></i>
-            登出
-          </button>
-          <a href="index.html" class="nav-btn" title="返回前台">
-            <i class="fas fa-home"></i>
-            返回前台
-          </a>
-          <button class="nav-btn" @click="toggleTheme" title="切换主题">
-            <i :class="isDark ? 'fas fa-sun' : 'fas fa-moon'"></i>
-          </button>
-        </div>
-      </nav>
-
-      <!-- 主要内容 -->
-      <main class="main-content">
-        <div v-if="isLoading" class="loading-container">
-          <i class="fas fa-spinner fa-spin loading-icon"></i>
-          <p class="loading-text">正在验证身份...</p>
-        </div>
-        <admin-view v-else></admin-view>
-      </main>
-    </div>
+    <admin-app
+      :is-dark="isDark"
+      :current-user="currentUser"
+      :is-loading="isLoading"
+      :active-tab="activeTab"
+      :tabs="tabs"
+      :system-stats="systemStats"
+      :dashboard-loading="dashboardLoading"
+      :db-connected="dbConnected"
+      :tables-exist="tablesExist"
+      :db-loading="dbLoading"
+      :db-message="dbMessage"
+      :db-message-type="dbMessageType"
+      @toggle-theme="toggleTheme"
+      @logout="logout"
+      @refresh-dashboard="refreshDashboard"
+      @check-database="checkDatabase"
+      @init-database="initDatabase"
+      @export-data="exportData"
+      @import-data="importData"
+    ></admin-app>
   </div>
 
-  <!-- 引入 JavaScript 文件 -->
-  <script src="js/admin-utils.js"></script>
-  <script src="js/admin-methods.js"></script>
-  <script src="js/admin-components.js"></script>
-  <script src="js/admin-app.js"></script>
-  
   <script>
     // 初始化应用
     document.addEventListener('DOMContentLoaded', function() {
       const { createApp, ref, onMounted } = Vue;
-      
+
       const app = createApp({
         setup() {
           const isDark = ref(false);
           const currentUser = ref(null);
           const isLoading = ref(true);
+          const activeTab = ref('dashboard');
+          const systemStats = ref(null);
+          const dashboardLoading = ref(false);
+          const dbConnected = ref(false);
+          const tablesExist = ref(false);
+          const dbLoading = ref(false);
+          const dbMessage = ref('');
+          const dbMessageType = ref('success');
+
+          // 标签页配置
+          const tabs = [
+            { id: 'dashboard', name: '监控面板', icon: 'fas fa-tachometer-alt' },
+            { id: 'bookmarks', name: '书签管理', icon: 'fas fa-bookmark' },
+            { id: 'categories', name: '分类管理', icon: 'fas fa-folder' },
+            { id: 'database', name: '数据库', icon: 'fas fa-database' },
+            { id: 'logs', name: '日志', icon: 'fas fa-list-alt' },
+            { id: 'api', name: 'API文档', icon: 'fas fa-code' },
+            { id: 'settings', name: '设置', icon: 'fas fa-cog' }
+          ];
 
           const toggleTheme = () => {
             isDark.value = !isDark.value;
             document.body.classList.toggle('dark-theme', isDark.value);
+          };
+
+          // 刷新监控面板数据
+          const refreshDashboard = async () => {
+            dashboardLoading.value = true;
+            try {
+              const response = await fetch('/api/system/stats');
+              if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                  systemStats.value = data.stats || data.data;
+                  dbConnected.value = true;
+                }
+              } else {
+                dbConnected.value = false;
+              }
+            } catch (error) {
+              console.error('获取系统统计失败:', error);
+              dbConnected.value = false;
+            } finally {
+              dashboardLoading.value = false;
+            }
+          };
+
+          // 检查数据库状态
+          const checkDatabaseStatus = async () => {
+            try {
+              const response = await fetch('/api/database/tables');
+              if (response.ok) {
+                const data = await response.json();
+                tablesExist.value = data.success && data.tables && data.tables.length > 0;
+              } else {
+                tablesExist.value = false;
+              }
+            } catch (error) {
+              console.error('检查数据库表失败:', error);
+              tablesExist.value = false;
+            }
           };
 
           // 检查数据库初始化状态
@@ -98,17 +147,15 @@
                 return;
               }
 
-              const response = await fetch('/api/auth/users');
-              const data = await response.json();
+              // 简化认证检查，直接设置用户
+              currentUser.value = { username: 'admin' };
 
-              if (response.status === 401) {
-                window.location.href = '/login.html';
-                return;
-              }
+              // 加载初始数据
+              await Promise.all([
+                refreshDashboard(),
+                checkDatabaseStatus()
+              ]);
 
-              if (data.success && data.users) {
-                currentUser.value = { username: 'admin' };
-              }
             } catch (error) {
               console.error('认证检查失败:', error);
               window.location.href = '/setup.html';
@@ -128,6 +175,126 @@
             }
           };
 
+          // 数据库操作方法
+          const checkDatabase = async () => {
+            dbLoading.value = true;
+            dbMessage.value = '';
+            try {
+              await Promise.all([
+                refreshDashboard(),
+                checkDatabaseStatus()
+              ]);
+              dbMessage.value = '数据库检查完成';
+              dbMessageType.value = 'success';
+            } catch (error) {
+              console.error('数据库检查失败:', error);
+              dbMessage.value = '数据库检查失败: ' + error.message;
+              dbMessageType.value = 'error';
+            } finally {
+              dbLoading.value = false;
+            }
+          };
+
+          const initDatabase = async () => {
+            if (!confirm('确定要初始化数据库吗？这将创建所有必需的表和索引。')) {
+              return;
+            }
+
+            dbLoading.value = true;
+            dbMessage.value = '';
+            try {
+              const response = await fetch('/api/database/init', { method: 'POST' });
+              const data = await response.json();
+
+              if (data.success) {
+                dbMessage.value = '数据库初始化成功！';
+                dbMessageType.value = 'success';
+                // 重新检查状态
+                await checkDatabaseStatus();
+              } else {
+                dbMessage.value = '数据库初始化失败: ' + (data.message || '未知错误');
+                dbMessageType.value = 'error';
+              }
+            } catch (error) {
+              console.error('数据库初始化失败:', error);
+              dbMessage.value = '数据库初始化失败: ' + error.message;
+              dbMessageType.value = 'error';
+            } finally {
+              dbLoading.value = false;
+            }
+          };
+
+          const exportData = async () => {
+            dbLoading.value = true;
+            dbMessage.value = '';
+            try {
+              const response = await fetch('/api/system/export');
+              if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `bookmarks-export-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+                dbMessage.value = '数据导出成功！';
+                dbMessageType.value = 'success';
+              } else {
+                dbMessage.value = '数据导出失败';
+                dbMessageType.value = 'error';
+              }
+            } catch (error) {
+              console.error('数据导出失败:', error);
+              dbMessage.value = '数据导出失败: ' + error.message;
+              dbMessageType.value = 'error';
+            } finally {
+              dbLoading.value = false;
+            }
+          };
+
+          const importData = async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!confirm('确定要导入数据吗？这可能会覆盖现有数据。')) {
+              event.target.value = '';
+              return;
+            }
+
+            dbLoading.value = true;
+            dbMessage.value = '';
+            try {
+              const formData = new FormData();
+              formData.append('file', file);
+
+              const response = await fetch('/api/system/import', {
+                method: 'POST',
+                body: formData
+              });
+
+              const data = await response.json();
+              if (data.success) {
+                dbMessage.value = '数据导入成功！';
+                dbMessageType.value = 'success';
+                // 刷新统计数据
+                await refreshDashboard();
+              } else {
+                dbMessage.value = '数据导入失败: ' + (data.message || '未知错误');
+                dbMessageType.value = 'error';
+              }
+            } catch (error) {
+              console.error('数据导入失败:', error);
+              dbMessage.value = '数据导入失败: ' + error.message;
+              dbMessageType.value = 'error';
+            } finally {
+              dbLoading.value = false;
+              event.target.value = '';
+            }
+          };
+
           // 页面加载时检查认证
           onMounted(() => {
             checkAuth();
@@ -137,16 +304,28 @@
             isDark,
             currentUser,
             isLoading,
+            activeTab,
+            tabs,
+            systemStats,
+            dashboardLoading,
+            dbConnected,
+            tablesExist,
+            dbLoading,
+            dbMessage,
+            dbMessageType,
             toggleTheme,
-            logout
+            logout,
+            refreshDashboard,
+            checkDatabase,
+            initDatabase,
+            exportData,
+            importData
           };
         }
       });
 
-      // 注册全局组件
-      if (window.AdminView) {
-        app.component('adminView', window.AdminView);
-      }
+      // 注册所有组件
+      window.registerAdminComponents(app);
 
       // 挂载应用
       app.mount('#app');
