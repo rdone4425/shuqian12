@@ -37,7 +37,7 @@ async function getDatabaseConfig(env) {
       instance: env.DB
     },
     turso: {
-      available: false, // 暂时禁用 Turso 以避免构建错误
+      available: !!(env.TURSO_URL && env.TURSO_AUTH_TOKEN),
       url: env.TURSO_URL,
       authToken: env.TURSO_AUTH_TOKEN
     }
@@ -223,7 +223,7 @@ export async function switchDatabaseType(env, newType) {
   await currentDb.prepare(`
     INSERT OR REPLACE INTO settings (key, value, description, updated_at)
     VALUES (?, ?, ?, datetime('now'))
-  `).bind('database_type', newType, '当前使用的数据库类型').run();
+  `)。bind('database_type', newType, '当前使用的数据库类型').run();
 
   return {
     success: true,
