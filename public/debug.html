@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>路径保护故障排除</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .status-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #667eea;
+        }
+
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #5a67d8;
+            transform: translateY(-1px);
+        }
+
+        .btn.danger {
+            background: #e53e3e;
+        }
+
+        .btn.danger:hover {
+            background: #c53030;
+        }
+
+        .btn.success {
+            background: #38a169;
+        }
+
+        .btn.success:hover {
+            background: #2f855a;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .result.success {
+            background: #f0fff4;
+            border: 1px solid #9ae6b4;
+            color: #22543d;
+        }
+
+        .result.error {
+            background: #fed7d7;
+            border: 1px solid #feb2b2;
+            color: #742a2a;
+        }
+
+        .recommendation {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .recommendation.success {
+            background: #f0fff4;
+            border-left: 4px solid #38a169;
+        }
+
+        .recommendation.warning {
+            background: #fffbeb;
+            border-left: 4px solid #d69e2e;
+        }
+
+        .recommendation.error {
+            background: #fed7d7;
+            border-left: 4px solid #e53e3e;
+        }
+
+        .recommendation.info {
+            background: #ebf8ff;
+            border-left: 4px solid #3182ce;
+        }
+
+        .access-urls {
+            background: #e6fffa;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        .access-urls a {
+            color: #319795;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .access-urls a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 路径保护故障排除</h1>
+        
+        <div class="status-card">
+            <h3>当前状态检查</h3>
+            <p>点击下面的按钮检查当前路径保护配置状态：</p>
+            <button class="btn" onclick="checkStatus()">检查路径状态</button>
+            <div id="status-result"></div>
+        </div>
+
+        <div class="status-card">
+            <h3>快速修复</h3>
+            <p>如果无法访问页面，可以使用以下快速修复选项：</p>
+            <button class="btn danger" onclick="resetPaths('disable_all')">禁用所有路径保护</button>
+            <button class="btn" onclick="resetPaths('disable_home')">仅禁用首页保护</button>
+            <button class="btn" onclick="resetPaths('disable_admin')">仅禁用管理保护</button>
+            <button class="btn success" onclick="resetPaths('reset_to_defaults')">重置为默认设置</button>
+            <div id="reset-result"></div>
+        </div>
+
+        <div class="status-card">
+            <h3>常见问题</h3>
+            <ul>
+                <li><strong>无法访问首页</strong>：可能启用了首页路径保护，尝试禁用首页保护</li>
+                <li><strong>无法访问管理后台</strong>：可能设置了自定义管理路径，尝试禁用管理保护</li>
+                <li><strong>忘记自定义路径</strong>：使用"检查路径状态"查看当前配置</li>
+                <li><strong>配置错误</strong>：使用"重置为默认设置"恢复初始状态</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        async function checkStatus() {
+            const resultDiv = document.getElementById('status-result');
+            resultDiv.innerHTML = '<div class="loading"></div> 检查中...';
+
+            try {
+                const response = await fetch('/api/debug/path-status');
+                const data = await response.json();
+
+                if (data.success) {
+                    let html = '<div class="result success">';
+                    html += `检查时间: ${new Date(data.timestamp).toLocaleString()}\n\n`;
+                    html += '=== 当前设置 ===\n';
+                    html += `首页路径保护: ${data.settings.enable_home_path || 'false'}\n`;
+                    html += `首页自定义路径: ${data.settings.home_path || '(未设置)'}\n`;
+                    html += `管理自定义路径: ${data.settings.admin_path || '(未设置)'}\n\n`;
+                    
+                    html += '=== 访问地址 ===\n';
+                    if (data.analysis.access_urls.home.length > 0) {
+                        html += `首页: ${data.analysis.access_urls.home.join(', ')}\n`;
+                    }
+                    if (data.analysis.access_urls.admin.length > 0) {
+                        html += `管理后台: ${data.analysis.access_urls.admin.join(', ')}\n`;
+                    }
+                    html += '</div>';
+
+                    // 添加建议
+                    if (data.recommendations && data.recommendations.length > 0) {
+                        html += '<h4>建议：</h4>';
+                        for (const rec of data.recommendations) {
+                            html += `<div class="recommendation ${rec.type}">`;
+                            html += `<strong>${rec.message}</strong><br>`;
+                            html += rec.action;
+                            html += '</div>';
+                        }
+                    }
+
+                    // 添加可点击的访问链接
+                    if (data.analysis.access_urls.home.length > 0 || data.analysis.access_urls.admin.length > 0) {
+                        html += '<div class="access-urls">';
+                        html += '<h4>快速访问：</h4>';
+                        for (const url of data.analysis.access_urls.home) {
+                            html += `<a href="${url}" target="_blank">首页 (${url})</a> `;
+                        }
+                        for (const url of data.analysis.access_urls.admin) {
+                            html += `<a href="${url}" target="_blank">管理后台 (${url})</a> `;
+                        }
+                        html += '</div>';
+                    }
+
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = `<div class="result error">检查失败: ${data.message}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="result error">检查失败: ${error.message}</div>`;
+            }
+        }
+
+        async function resetPaths(action) {
+            const resultDiv = document.getElementById('reset-result');
+            resultDiv.innerHTML = '<div class="loading"></div> 处理中...';
+
+            try {
+                const response = await fetch(`/api/debug/reset-paths?action=${action}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    let html = '<div class="result success">';
+                    html += `操作: ${data.action}\n`;
+                    html += `结果: ${data.message}\n\n`;
+                    html += '变更内容:\n';
+                    for (const change of data.changes) {
+                        html += `- ${change}\n`;
+                    }
+                    html += '\n请刷新页面或重新访问相关地址。';
+                    html += '</div>';
+                    resultDiv.innerHTML = html;
+
+                    // 3秒后自动刷新状态
+                    setTimeout(() => {
+                        checkStatus();
+                    }, 3000);
+                } else {
+                    resultDiv.innerHTML = `<div class="result error">操作失败: ${data.message}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="result error">操作失败: ${error.message}</div>`;
+            }
+        }
+
+        // 页面加载时自动检查状态
+        window.addEventListener('load', checkStatus);
+    </script>
+</body>
+</html>
